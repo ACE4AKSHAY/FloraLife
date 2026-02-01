@@ -1,0 +1,7 @@
+{
+  "name": "FloraLife",
+  "description": "A complete plant companion app for tracking growth, identifying diseases with AI, and learning growing techniques.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
