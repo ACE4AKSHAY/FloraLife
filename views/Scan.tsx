@@ -4,6 +4,13 @@ import React, { useState, useRef } from 'react';
 import { Camera, Upload, RefreshCw, AlertCircle, CheckCircle2, Lightbulb, ChevronRight, Info, Leaf } from 'lucide-react';
 import { analyzePlantImage } from '../services/geminiService';
 import { ScanResult } from '../types';
+import {
+  Camera as CapCamera,
+  CameraResultType,
+  CameraSource,
+  PermissionStatus
+} from "@capacitor/camera";
+
 
 const ScanView: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
@@ -35,6 +42,77 @@ const ScanView: React.FC = () => {
   const triggerUpload = () => {
     fileInputRef.current?.click();
   };
+
+const takeCameraPhoto = async (): Promise<string | null> => {
+  try {
+    let perm: PermissionStatus = await CapCamera.checkPermissions();
+
+    if (perm.camera !== "granted") {
+      perm = await CapCamera.requestPermissions({ permissions: ["camera"] });
+    }
+
+    if (perm.camera !== "granted") return null;
+
+    const image = await CapCamera.getPhoto({
+      quality: 90,
+      allowEditing: false,
+      resultType: CameraResultType.Uri,
+      source: CameraSource.Camera
+    });
+
+    return image.webPath ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const pickGalleryPhoto = async (): Promise<string | null> => {
+  try {
+    const image = await CapCamera.getPhoto({
+      quality: 90,
+      allowEditing: false,
+      resultType: CameraResultType.Uri,
+      source: CameraSource.Photos
+    });
+
+    return image.webPath ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const scanFromPath = async (path: string) => {
+  setIsScanning(true);
+  setResult(null);
+
+  try {
+    const res = await fetch(path);
+    const blob = await res.blob();
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64 = (reader.result as string).split(",")[1];
+      const scanRes = await analyzePlantImage(base64);
+      setResult(scanRes);
+      setIsScanning(false);
+    };
+    reader.readAsDataURL(blob);
+  } catch {
+    alert("Scanning failed. Please try again.");
+    setIsScanning(false);
+  }
+};
+
+const handleCameraScan = async () => {
+  const path = await takeCameraPhoto();
+  if (path) scanFromPath(path);
+};
+
+const handleGalleryScan = async () => {
+  const path = await pickGalleryPhoto();
+  if (path) scanFromPath(path);
+};
+
 
   if (result) {
     return (
@@ -160,7 +238,7 @@ const ScanView: React.FC = () => {
           <div className="flex gap-4 w-full relative z-10">
             <button 
               disabled={isScanning}
-              onClick={triggerUpload}
+              onClick={handleCameraScan}
               className="flex-1 bg-emerald-600 text-white p-6 rounded-3xl flex flex-col items-center gap-2 font-bold shadow-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
             >
               {isScanning ? <RefreshCw className="animate-spin" size={24} /> : <Camera size={24} />}
@@ -168,7 +246,7 @@ const ScanView: React.FC = () => {
             </button>
             <button 
               disabled={isScanning}
-              onClick={triggerUpload}
+              onClick={handleGalleryScan}
               className="flex-1 bg-[#8c7e73] text-white p-6 rounded-3xl flex flex-col items-center gap-2 font-bold shadow-lg hover:bg-[#7c6a5a] transition-colors disabled:opacity-50"
             >
               {isScanning ? <RefreshCw className="animate-spin" size={24} /> : <Upload size={24} />}
@@ -177,13 +255,7 @@ const ScanView: React.FC = () => {
           </div>
         </div>
         
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleFileUpload} 
-          accept="image/*" 
-          className="hidden" 
-        />
+        
       </div>
     </div>
   );
