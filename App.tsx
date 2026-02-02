@@ -204,7 +204,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[#fdfdfb] dark:bg-[#121211] text-stone-800 dark:text-stone-100 transition-colors duration-300">
-      <main className="flex-1 overflow-y-auto pb-20">
+      <main className="flex-1 overflow-y-auto pb-28">
         {renderContent()}
       </main>
 
@@ -227,7 +227,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1e1e1c] border-t border-stone-100 dark:border-stone-800 flex justify-around items-center px-4 safe-area-bottom shadow-lg max-w-[480px] mx-auto z-50 transition-colors duration-300">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1e1e1c] border-t border-stone-100 dark:border-stone-800 flex justify-around items-center px-4 pb-[env(safe-area-inset-bottom)] shadow-lg max-w-[480px] mx-auto z-50 transition-colors duration-300">
         <TabButton tab={AppTab.HOME} icon={Home} label="Home" />
         <TabButton tab={AppTab.MY_PLANTS} icon={Leaf} label="My Plants" />
         <TabButton tab={AppTab.SCAN} icon={Scan} label="Scan" />
