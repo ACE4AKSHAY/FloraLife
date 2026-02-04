@@ -22,11 +22,26 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-node_modules/
-dist/
+# =========================
+# Android (clean + readable)
+# =========================
+
+# Gradle / IDE junk
 android/.gradle/
 android/.idea/
 android/build/
 android/app/build/
 android/local.properties
-.DS_Store
+
+# Ignore generated Capacitor assets
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/assets/public/assets/
+
+# BUT keep Android source code
+!android/app/src/
+!android/app/src/main/
+!android/app/src/main/AndroidManifest.xml
+!android/app/src/main/java/
+!android/app/src/main/res/
+!android/app/src/main/res/**
