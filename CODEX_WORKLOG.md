@@ -46,3 +46,31 @@
 - Follow-up quality fix:
   - Corrected image resizing in `TFLitePlugin` to use the model's actual input dimensions (`width`/`height` from the input tensor) instead of a hard-coded `224x224`.
   - Android Gradle build completed successfully again after this correction.
+- Implemented app back-navigation behavior update:
+  - Added Android hardware back handling so non-home tabs return to Home first.
+  - Home tab still exits the native app when back is pressed.
+  - Detail/library overlays still close before returning Home.
+- Added visible in-app back buttons to the top of:
+  - My Plants
+  - Scan
+  - Guides
+  - Shop
+- Expanded offline scan results with hardcoded per-class content:
+  - health status
+  - severity
+  - symptoms
+  - causes
+  - recommendations
+  - prevention guidance
+  - presentation-friendly sample image hints
+- Added a new offline disease profile dataset covering all 39 TensorFlow Lite classes.
+- Added presentation helper file `OFFLINE_MODEL_SAMPLE_IMAGES.md` listing ideal sample-image subjects for each classifier label.
+- Added plant starting-stage selection when:
+  - estimating harvest inside Plant Library
+  - adding a plant to the garden
+- Updated planting logic so FloraLife back-calculates `plantedAt` based on the selected starting stage instead of always assuming germination/day 0.
+- Verification:
+  - TypeScript check passed with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.

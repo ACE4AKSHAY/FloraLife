@@ -61,7 +61,7 @@ export interface Reminder {
 }
 
 export interface ScanResult {
-  status: 'Healthy' | 'Diseased';
+  status: 'Healthy' | 'Diseased' | 'Needs Review';
   diseaseName: string;
   confidence: number;
   description: string;
@@ -70,6 +70,14 @@ export interface ScanResult {
   timestamp: number;
   growthStage: string;
   growthStageDescription: string;
+  cropName?: string;
+  severity?: 'Low' | 'Moderate' | 'High';
+  symptoms?: string[];
+  causes?: string[];
+  prevention?: string[];
+  sampleImageHint?: string;
+  sampleImageTips?: string[];
+  analysisMode?: 'online' | 'offline';
 }
 
 export interface ShopProduct {

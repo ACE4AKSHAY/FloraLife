@@ -1,16 +1,17 @@
 
 import React from 'react';
 import { Plant, Species } from '../types';
-import { Plus, Leaf, Camera, Droplets } from 'lucide-react';
+import { Plus, Leaf, Camera, Droplets, ChevronLeft } from 'lucide-react';
 
 interface MyPlantsViewProps {
   plants: Plant[];
   library: Species[];
+  onBackHome: () => void;
   onAdd: () => void;
   onSelectPlant: (id: string) => void;
 }
 
-const MyPlantsView: React.FC<MyPlantsViewProps> = ({ plants, library, onAdd, onSelectPlant }) => {
+const MyPlantsView: React.FC<MyPlantsViewProps> = ({ plants, library, onBackHome, onAdd, onSelectPlant }) => {
   const activePlants = plants.filter(p => !p.harvested);
   const harvestedPlants = plants.filter(p => p.harvested);
 
@@ -38,10 +39,15 @@ const MyPlantsView: React.FC<MyPlantsViewProps> = ({ plants, library, onAdd, onS
 
   return (
     <div className="p-5 flex flex-col gap-6 bg-[#fdfdfb] dark:bg-[#121211] transition-colors duration-300">
-      <header className="flex items-center justify-between">
-        <div>
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={onBackHome} className="p-2 rounded-2xl bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 text-stone-500 dark:text-stone-400 shadow-sm">
+            <ChevronLeft size={20} />
+          </button>
+          <div>
           <h1 className="text-2xl font-black text-stone-800 dark:text-stone-100 tracking-tight">My Plants</h1>
           <p className="text-xs text-stone-400 dark:text-stone-500 font-medium">{activePlants.length} active, {harvestedPlants.length} harvested</p>
+          </div>
         </div>
         <button 
           onClick={onAdd}

@@ -83,6 +83,48 @@ const App: React.FC = () => {
     setLibrary(storageService.getLibrary());
   };
 
+  const goHome = () => {
+    setSelectedPlantId(null);
+    setShowLibrary(false);
+    setActiveTab(AppTab.HOME);
+  };
+
+  const exitNativeApp = () => {
+    const nativeNavigator = navigator as Navigator & {
+      app?: { exitApp?: () => void };
+    };
+    nativeNavigator.app?.exitApp?.();
+  };
+
+  useEffect(() => {
+    const handleBackButton = (event: Event) => {
+      event.preventDefault();
+
+      if (selectedPlantId) {
+        closeDetail();
+        return;
+      }
+
+      if (showLibrary) {
+        setShowLibrary(false);
+        return;
+      }
+
+      if (activeTab !== AppTab.HOME) {
+        goHome();
+        return;
+      }
+
+      exitNativeApp();
+    };
+
+    document.addEventListener('backbutton', handleBackButton);
+
+    return () => {
+      document.removeEventListener('backbutton', handleBackButton);
+    };
+  }, [activeTab, selectedPlantId, showLibrary]);
+
   const checkReminders = () => {
     const currentPlants = storageService.getPlants();
     const now = Date.now();
@@ -173,16 +215,17 @@ const App: React.FC = () => {
           <MyPlantsView 
             plants={plants} 
             library={library} 
+            onBackHome={goHome}
             onAdd={() => setShowLibrary(true)} 
             onSelectPlant={navigateToDetail}
           />
         );
       case AppTab.SCAN:
-        return <ScanView />;
+        return <ScanView onBackHome={goHome} />;
       case AppTab.GUIDES:
-        return <GuidesView />;
+        return <GuidesView onBackHome={goHome} />;
       case AppTab.SHOP:
-        return <ShopView />;
+        return <ShopView onBackHome={goHome} />;
       default:
         return <HomeView plants={plants} onAddPlant={() => setShowLibrary(true)} onScan={() => setActiveTab(AppTab.SCAN)} onNavigateGuide={() => setActiveTab(AppTab.GUIDES)} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />;
     }

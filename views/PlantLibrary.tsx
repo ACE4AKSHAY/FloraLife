@@ -17,6 +17,7 @@ const PlantLibraryView: React.FC<PlantLibraryViewProps> = ({ onBack, onAdd }) =>
   const [selectedSpecies, setSelectedSpecies] = useState<Species | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedStageIndex, setSelectedStageIndex] = useState(0);
   
   // Custom Species creation state
   const [newSpecies, setNewSpecies] = useState<Partial<Species>>({
@@ -42,6 +43,10 @@ const PlantLibraryView: React.FC<PlantLibraryViewProps> = ({ onBack, onAdd }) =>
   useEffect(() => {
     setLibrary(storageService.getLibrary());
   }, []);
+
+  useEffect(() => {
+    setSelectedStageIndex(0);
+  }, [selectedSpecies?.id]);
 
   const filtered = library.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase());
@@ -74,12 +79,18 @@ const PlantLibraryView: React.FC<PlantLibraryViewProps> = ({ onBack, onAdd }) =>
   const handleStartTracking = () => {
     if (!selectedSpecies) return;
 
+    const selectedStage = selectedSpecies.stages[selectedStageIndex] ?? selectedSpecies.stages[0];
+    const stageOffsetDays = getStageStartDay(selectedStage);
+    const referenceDate = new Date(harvestStartDate);
+    const plantedAt = new Date(referenceDate);
+    plantedAt.setDate(plantedAt.getDate() - stageOffsetDays);
+
     const newPlant: Plant = {
       id: Math.random().toString(36).substr(2, 9),
       speciesId: selectedSpecies.id,
       customName: nickname || selectedSpecies.name,
       location: location,
-      plantedAt: new Date(harvestStartDate).getTime(),
+      plantedAt: plantedAt.getTime(),
       harvested: false,
       careLogs: [],
       reminders: [],
@@ -89,6 +100,12 @@ const PlantLibraryView: React.FC<PlantLibraryViewProps> = ({ onBack, onAdd }) =>
     storageService.addPlant(newPlant);
     setShowAddModal(false);
     onAdd();
+  };
+
+  const getStageStartDay = (stage?: StageInfo) => {
+    if (!stage) return 0;
+    const startDay = Number(stage.days.split('-')[0]);
+    return Number.isFinite(startDay) ? startDay : 0;
   };
 
   // Water Calculation Logic
@@ -121,12 +138,15 @@ const PlantLibraryView: React.FC<PlantLibraryViewProps> = ({ onBack, onAdd }) =>
   const getEstimatedHarvest = () => {
     if (!selectedSpecies) return '';
     const start = new Date(harvestStartDate);
-    start.setDate(start.getDate() + selectedSpecies.durationDays);
+    const selectedStage = selectedSpecies.stages[selectedStageIndex] ?? selectedSpecies.stages[0];
+    const remainingDays = Math.max(0, selectedSpecies.durationDays - getStageStartDay(selectedStage));
+    start.setDate(start.getDate() + remainingDays);
     return start.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
 
   if (selectedSpecies && !showAddModal) {
     const waterInfo = calculateWaterNeeds();
+    const selectedStage = selectedSpecies.stages[selectedStageIndex] ?? selectedSpecies.stages[0];
     return (
       <div className="flex flex-col min-h-screen bg-[#fdfdfb] dark:bg-[#121211] transition-colors duration-300">
         <header className="p-5 flex items-center gap-3 border-b border-stone-50 dark:border-stone-800 bg-white dark:bg-[#1e1e1c] sticky top-0 z-30">
@@ -224,13 +244,36 @@ const PlantLibraryView: React.FC<PlantLibraryViewProps> = ({ onBack, onAdd }) =>
 
               <div className="space-y-4">
                 <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest px-1">Planned Planting Date</span>
+                  <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest px-1">Planting / Purchase Date</span>
                   <input 
                     type="date" 
                     className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-2xl border-none focus:ring-0 text-sm font-bold text-stone-700 dark:text-stone-200"
                     value={harvestStartDate}
                     onChange={(e) => setHarvestStartDate(e.target.value)}
                   />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest px-1">Current Stage When Added</span>
+                  <select
+                    className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-2xl border-none focus:ring-0 text-sm font-bold text-stone-700 dark:text-stone-200"
+                    value={selectedStageIndex}
+                    onChange={(e) => setSelectedStageIndex(Number(e.target.value))}
+                  >
+                    {selectedSpecies.stages.map((stage, index) => (
+                      <option key={`${stage.stage}-${index}`} value={index}>
+                        {stage.stage} ({stage.days})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-stone-100 dark:border-stone-800 bg-stone-50/80 dark:bg-stone-900/60">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">Selected Stage</p>
+                  <p className="text-sm font-black text-stone-800 dark:text-stone-100">{selectedStage.stage}</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+                    FloraLife will back-calculate the start date using the stage range {selectedStage.days} so progress tracking begins from the right point.
+                  </p>
                 </div>
 
                 <div className="bg-amber-50/50 dark:bg-amber-900/10 p-5 rounded-2xl border border-amber-100 dark:border-amber-900/20 flex items-center gap-4">
@@ -485,9 +528,25 @@ const PlantLibraryView: React.FC<PlantLibraryViewProps> = ({ onBack, onAdd }) =>
                   onChange={e => setLocation(e.target.value)}
                 />
               </div>
+              <div>
+                <label className="text-xs font-bold text-stone-400 uppercase tracking-widest block mb-2 px-1">Starting Stage</label>
+                <select
+                  className="w-full bg-[#f4f4f4] dark:bg-stone-900 p-4 rounded-2xl border border-transparent focus:border-emerald-500/20 focus:outline-none text-sm dark:text-stone-100"
+                  value={selectedStageIndex}
+                  onChange={(e) => setSelectedStageIndex(Number(e.target.value))}
+                >
+                  {selectedSpecies?.stages.map((stage, index) => (
+                    <option key={`${stage.stage}-${index}`} value={index}>
+                      {stage.stage} ({stage.days})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 flex gap-3">
                 <Info size={16} className="text-stone-400 shrink-0" />
-                <p className="text-[10px] text-stone-500 leading-tight">Setting the planting date to <b>{new Date(harvestStartDate).toLocaleDateString()}</b> based on your calculator input.</p>
+                <p className="text-[10px] text-stone-500 leading-tight">
+                  You selected <b>{selectedSpecies?.stages[selectedStageIndex]?.stage ?? 'Growth'}</b>. FloraLife will use <b>{new Date(harvestStartDate).toLocaleDateString()}</b> as the date you got the plant, then shift the internal start date backward so growth progress matches that stage.
+                </p>
               </div>
               <button 
                 onClick={handleStartTracking}

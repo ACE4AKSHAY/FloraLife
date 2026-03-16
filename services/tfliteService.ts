@@ -1,4 +1,5 @@
 import { registerPlugin } from "@capacitor/core";
+import { getOfflineDiseaseProfile } from "./offlineDiseaseProfiles";
 
 const TFLite = registerPlugin<any>("TFLite");
 
@@ -9,18 +10,12 @@ export async function runOfflineModel(base64: string) {
 
     console.log("Browser mode: using stub ML result");
 
+    const demoProfile = getOfflineDiseaseProfile("pepper bell healthy");
+
     return {
-      diseaseName: "Demo Plant (browser mode)",
+      ...demoProfile,
       confidence: 82,
-      status: "Healthy",
-      description: "Browser testing mode. Real TensorFlow Lite runs only in Android.",
-      growthStage: "Vegetative",
-      growthStageDescription: "Leaf development stage",
-      recommendations: [
-        "Water regularly",
-        "Provide sunlight",
-        "Check soil moisture"
-      ],
+      description: "Browser testing mode. Real TensorFlow Lite runs only in Android, but the offline result layout is previewed here.",
       imageUrl: `data:image/jpeg;base64,${base64}`,
       timestamp: Date.now()
     };
@@ -34,18 +29,11 @@ export async function runOfflineModel(base64: string) {
       image: base64
     });
 
+    const profile = getOfflineDiseaseProfile(result.disease);
+
     return {
-      diseaseName: result.disease,
+      ...profile,
       confidence: Math.round(result.confidence * 100),
-      status: result.confidence > 0.6 ? "Issue Detected" : "Healthy",
-      description: "Prediction from TensorFlow Lite model.",
-      growthStage: "Unknown",
-      growthStageDescription: "Detected using offline model",
-      recommendations: [
-        "Ensure proper watering",
-        "Provide adequate sunlight",
-        "Check leaf condition"
-      ],
       imageUrl: `data:image/jpeg;base64,${base64}`,
       timestamp: Date.now()
     };
@@ -55,13 +43,10 @@ export async function runOfflineModel(base64: string) {
     console.error("TFLite error:", e);
 
     return {
-      diseaseName: "Model error",
+      ...getOfflineDiseaseProfile("background"),
+      diseaseName: "Offline model error",
       confidence: 0,
-      status: "Issue",
       description: "TensorFlow inference failed.",
-      growthStage: "Unknown",
-      growthStageDescription: "",
-      recommendations: [],
       imageUrl: `data:image/jpeg;base64,${base64}`,
       timestamp: Date.now()
     };

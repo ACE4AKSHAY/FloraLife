@@ -1,10 +1,14 @@
 
 import React, { useState } from 'react';
 import { Species } from '../types';
-import { Search, ChevronDown, ChevronUp, BookOpen, ClipboardList, Lightbulb, AlertTriangle } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, BookOpen, ChevronLeft } from 'lucide-react';
 import { INITIAL_SPECIES } from '../constants';
 
-const GuidesView: React.FC = () => {
+interface GuidesViewProps {
+  onBackHome: () => void;
+}
+
+const GuidesView: React.FC<GuidesViewProps> = ({ onBackHome }) => {
   // Always use INITIAL_SPECIES for the static guides tab
   const [selectedSpecies, setSelectedSpecies] = useState<Species>(INITIAL_SPECIES[0]);
   const [expandedStage, setExpandedStage] = useState<number | null>(0);
@@ -18,9 +22,14 @@ const GuidesView: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-full bg-[#fdfdfb] dark:bg-[#121211] pb-20 transition-colors duration-300">
-      <header className="px-6 pt-6 pb-4">
-        <h1 className="text-2xl font-black text-stone-800 dark:text-stone-100 tracking-tight">Growing Guides</h1>
-        <p className="text-xs text-stone-400 dark:text-stone-500 font-medium">Original static library guides</p>
+      <header className="px-6 pt-6 pb-4 flex items-start gap-3">
+        <button onClick={onBackHome} className="p-2 rounded-2xl bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 text-stone-500 dark:text-stone-400 shadow-sm">
+          <ChevronLeft size={20} />
+        </button>
+        <div>
+          <h1 className="text-2xl font-black text-stone-800 dark:text-stone-100 tracking-tight">Growing Guides</h1>
+          <p className="text-xs text-stone-400 dark:text-stone-500 font-medium">Original static library guides</p>
+        </div>
       </header>
 
       {/* Search Bar */}

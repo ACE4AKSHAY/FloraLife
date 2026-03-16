@@ -129,6 +129,7 @@ export async function analyzePlantImage(base64Image: string): Promise<ScanResult
     const result = JSON.parse(jsonResponseText);
     return {
       ...result,
+      analysisMode: 'online',
       imageUrl: `data:image/jpeg;base64,${base64Image}`,
       timestamp: Date.now()
     };
