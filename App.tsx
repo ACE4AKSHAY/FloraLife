@@ -203,8 +203,8 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-[#fdfdfb] dark:bg-[#121211] text-stone-800 dark:text-stone-100 transition-colors duration-300">
-      <main className="flex-1 overflow-y-auto pb-28">
+    <div className="flex flex-col min-h-screen pt-[env(safe-area-inset-top)] bg-[#fdfdfb] dark:bg-[#121211] text-stone-800 dark:text-stone-100 transition-colors duration-300">
+      <main className="flex-1 overflow-y-auto pb-28 pt-3">
         {renderContent()}
       </main>
 

@@ -6,4 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'dist'
 };
 
+server: {
+  androidScheme: "https"
+}
+
 export default config;
