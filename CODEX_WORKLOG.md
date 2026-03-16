@@ -34,3 +34,12 @@
   - Added logs for model input/output tensor shape and type.
 - Verification:
   - Android Gradle build completed successfully again after the Float32 input fix.
+- Runtime verification:
+  - User tested the Android app on emulator after `npx cap sync android`, clean, rebuild, and run.
+  - Offline scan succeeded.
+  - Plugin logs confirmed:
+    - input tensor `[1, 200, 200, 3] FLOAT32`
+    - output tensor `[1, 39] FLOAT32`
+    - prediction completed successfully
+  - Example successful prediction:
+    - `pepper bell bacterial spot (0.75290024)`
