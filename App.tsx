@@ -85,6 +85,8 @@ const App: React.FC = () => {
 
     const registerNativeListeners = async () => {
       try {
+        await CapApp.toggleBackButtonHandler({ enabled: true });
+
         backButtonHandle = await CapApp.addListener('backButton', async () => {
           if (selectedPlantIdRef.current) {
             closeDetail();

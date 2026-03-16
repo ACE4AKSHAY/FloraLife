@@ -1,13 +1,23 @@
 import { Capacitor } from '@capacitor/core';
-import { LocalNotifications, type DeliveredNotificationSchema, type LocalNotificationSchema } from '@capacitor/local-notifications';
+import {
+  LocalNotifications,
+  type DeliveredNotificationSchema,
+  type LocalNotificationSchema,
+} from '@capacitor/local-notifications';
 import { Plant, Reminder, ReminderIntervalHours, ReminderScheduleType } from '../types';
 
 const REMINDER_GROUP = 'floralife-reminders';
-const MAX_INTERVAL_OCCURRENCES = 6;
-const REMINDER_INTERVALS: ReminderIntervalHours[] = [4, 6, 8, 12];
+const DEFAULT_INTERVAL_HOURS: ReminderIntervalHours = 6;
+const MIN_INTERVAL_HOURS: ReminderIntervalHours = 1;
+const MAX_INTERVAL_HOURS: ReminderIntervalHours = 24;
+const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const ONE_TIME_REPEAT_MINUTES = 5;
+const ONE_TIME_REPEAT_COUNT = 48;
+const INTERVAL_OCCURRENCE_COUNT = 36;
+const MAX_SCHEDULED_NOTIFICATIONS = Math.max(ONE_TIME_REPEAT_COUNT + 1, INTERVAL_OCCURRENCE_COUNT);
 
 const isNativePlatform = () => Capacitor.getPlatform() !== 'web';
-const isAndroidPlatform = () => Capacitor.getPlatform() === 'android';
 
 const parseTime = (time: string) => {
   const [hours, minutes] = time.split(':').map(Number);
@@ -20,7 +30,6 @@ const parseTime = (time: string) => {
 const buildLocalDate = (date: string, time: string) => {
   const [year, month, day] = date.split('-').map(Number);
   const { hours, minutes } = parseTime(time);
-
   return new Date(year, (month || 1) - 1, day || 1, hours, minutes, 0, 0);
 };
 
@@ -30,6 +39,17 @@ const getTodayAsLocalDate = () => {
   const month = `${now.getMonth() + 1}`.padStart(2, '0');
   const day = `${now.getDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const formatDateParts = (value: number | Date) => {
+  const date = value instanceof Date ? value : new Date(value);
+
+  return {
+    day: `${date.getDate()}`.padStart(2, '0'),
+    month: `${date.getMonth() + 1}`.padStart(2, '0'),
+    year: date.getFullYear(),
+    date,
+  };
 };
 
 const hashToPositiveInt = (value: string) => {
@@ -42,26 +62,34 @@ const hashToPositiveInt = (value: string) => {
   return Math.max(1, Math.abs(hash));
 };
 
+const normalizeIntervalHours = (intervalHours?: number): ReminderIntervalHours => {
+  const safeIntervalHours = Math.round(Number(intervalHours ?? DEFAULT_INTERVAL_HOURS));
+
+  if (!Number.isFinite(safeIntervalHours)) {
+    return DEFAULT_INTERVAL_HOURS;
+  }
+
+  return Math.min(MAX_INTERVAL_HOURS, Math.max(MIN_INTERVAL_HOURS, safeIntervalHours));
+};
+
 const getAllReminderNotificationIds = (reminderId: string) =>
-  Array.from({ length: MAX_INTERVAL_OCCURRENCES }, (_, index) =>
+  Array.from({ length: MAX_SCHEDULED_NOTIFICATIONS }, (_, index) =>
     hashToPositiveInt(`floralife-reminder:${reminderId}:${index}`),
   );
 
 const getNotificationIdsForReminder = (reminder: Reminder) => {
   const allIds = getAllReminderNotificationIds(reminder.id);
 
-  if (reminder.scheduleType === 'interval') {
-    const intervalHours = normalizeIntervalHours(reminder.intervalHours);
-    return allIds.slice(0, 24 / intervalHours);
+  if (reminder.scheduleType === 'daily') {
+    return allIds.slice(0, 1);
   }
 
-  return allIds.slice(0, 1);
-};
+  if (reminder.scheduleType === 'interval') {
+    return allIds.slice(0, INTERVAL_OCCURRENCE_COUNT);
+  }
 
-const normalizeIntervalHours = (intervalHours?: number): ReminderIntervalHours =>
-  REMINDER_INTERVALS.includes(intervalHours as ReminderIntervalHours)
-    ? (intervalHours as ReminderIntervalHours)
-    : 6;
+  return allIds.slice(0, ONE_TIME_REPEAT_COUNT + 1);
+};
 
 const getReminderTime = (reminder: Reminder) => {
   const date = new Date(reminder.dateTime);
@@ -72,14 +100,14 @@ const getReminderTime = (reminder: Reminder) => {
 
 const getNotificationBody = (plantName: string, reminder: Reminder) => {
   if (reminder.scheduleType === 'daily') {
-    return `${plantName} needs attention today. This reminder repeats every day.`;
+    return `${plantName} needs attention today.`;
   }
 
   if (reminder.scheduleType === 'interval') {
-    return `${plantName} needs attention. This reminder repeats every ${normalizeIntervalHours(reminder.intervalHours)} hours.`;
+    return `${plantName} needs attention. Repeats every ${normalizeIntervalHours(reminder.intervalHours)} hours.`;
   }
 
-  return `${plantName} needs attention now.`;
+  return `${plantName} needs attention now. FloraLife will remind again every 5 minutes until it is marked done.`;
 };
 
 const buildNotification = (
@@ -104,6 +132,41 @@ const buildNotification = (
   },
 });
 
+const getNextIntervalTimestamp = (startTimestamp: number, intervalMs: number) => {
+  if (startTimestamp > Date.now()) {
+    return startTimestamp;
+  }
+
+  const elapsed = Date.now() - startTimestamp;
+  const steps = Math.floor(elapsed / intervalMs) + 1;
+  return startTimestamp + steps * intervalMs;
+};
+
+const buildOneTimeNotifications = (plantName: string, reminder: Reminder, ids: number[]) => {
+  const followUpMs = ONE_TIME_REPEAT_MINUTES * MINUTE_MS;
+  const firstTimestamp = getNextIntervalTimestamp(reminder.dateTime, followUpMs);
+
+  return ids.map((id, index) =>
+    buildNotification(id, plantName, reminder, {
+      at: new Date(firstTimestamp + index * followUpMs),
+      allowWhileIdle: true,
+    }),
+  );
+};
+
+const buildIntervalNotifications = (plantName: string, reminder: Reminder, ids: number[]) => {
+  const intervalHours = normalizeIntervalHours(reminder.intervalHours);
+  const intervalMs = intervalHours * HOUR_MS;
+  const firstTimestamp = getNextIntervalTimestamp(reminder.dateTime, intervalMs);
+
+  return ids.map((id, index) =>
+    buildNotification(id, plantName, reminder, {
+      at: new Date(firstTimestamp + index * intervalMs),
+      allowWhileIdle: true,
+    }),
+  );
+};
+
 const buildNotificationsForReminder = (plantName: string, reminder: Reminder): LocalNotificationSchema[] => {
   const ids = getNotificationIdsForReminder(reminder);
 
@@ -122,27 +185,10 @@ const buildNotificationsForReminder = (plantName: string, reminder: Reminder): L
   }
 
   if (reminder.scheduleType === 'interval') {
-    const { hours, minutes } = parseTime(getReminderTime(reminder));
-    const intervalHours = normalizeIntervalHours(reminder.intervalHours);
-    const occurrences = 24 / intervalHours;
-
-    return Array.from({ length: occurrences }, (_, index) =>
-      buildNotification(ids[index], plantName, reminder, {
-        on: {
-          hour: (hours + index * intervalHours) % 24,
-          minute: minutes,
-        },
-        allowWhileIdle: true,
-      }),
-    );
+    return buildIntervalNotifications(plantName, reminder, ids);
   }
 
-  return [
-    buildNotification(ids[0], plantName, reminder, {
-      at: new Date(reminder.dateTime),
-      allowWhileIdle: true,
-    }),
-  ];
+  return buildOneTimeNotifications(plantName, reminder, ids);
 };
 
 const clearDeliveredNotifications = async (notificationIds: number[]) => {
@@ -185,23 +231,20 @@ export const isReminderActive = (reminder: Reminder) => {
   return normalizedReminder.enabled !== false;
 };
 
-export const isReminderOverdue = (reminder: Reminder) => {
-  const normalizedReminder = normalizeReminder(reminder);
-  return normalizedReminder.scheduleType === 'once' && isReminderActive(normalizedReminder) && normalizedReminder.dateTime < Date.now();
-};
-
 export const countActiveReminders = (reminders: Reminder[]) =>
   reminders.reduce((count, reminder) => count + (isReminderActive(reminder) ? 1 : 0), 0);
 
 export const formatReminderTime = (reminder: Reminder) =>
-  new Date(reminder.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-export const formatReminderDate = (reminder: Reminder) =>
-  new Date(reminder.dateTime).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+  formatDateParts(reminder.dateTime).date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
   });
+
+export const formatReminderDate = (reminder: Reminder) => {
+  const { day, month, year } = formatDateParts(reminder.dateTime);
+  return `${day}/${month}/${year}`;
+};
 
 export const formatReminderScheduleLabel = (reminder: Reminder) => {
   const normalizedReminder = normalizeReminder(reminder);
@@ -214,7 +257,7 @@ export const formatReminderScheduleLabel = (reminder: Reminder) => {
     return `Every ${normalizeIntervalHours(normalizedReminder.intervalHours)} hours from ${formatReminderTime(normalizedReminder)}`;
   }
 
-  return `${formatReminderDate(normalizedReminder)} at ${formatReminderTime(normalizedReminder)}`;
+  return `${formatReminderDate(normalizedReminder)} at ${formatReminderTime(normalizedReminder)} then every 5 min until done`;
 };
 
 export const formatReminderModeChip = (reminder: Reminder) => {
@@ -258,30 +301,10 @@ export const buildRepeatingReminderTimestamp = (
   return nextRun.getTime();
 };
 
-export const getReminderPermissionStatus = async () => {
-  if (!isNativePlatform()) {
-    return {
-      displayGranted: true,
-      exactAlarmGranted: true,
-    };
-  }
-
-  const displayPermissions = await LocalNotifications.checkPermissions();
-  const exactAlarmGranted = isAndroidPlatform()
-    ? (await LocalNotifications.checkExactNotificationSetting()).exact_alarm === 'granted'
-    : true;
-
-  return {
-    displayGranted: displayPermissions.display === 'granted',
-    exactAlarmGranted,
-  };
-};
-
 export const requestReminderPermissions = async () => {
   if (!isNativePlatform()) {
     return {
       displayGranted: true,
-      exactAlarmGranted: true,
     };
   }
 
@@ -291,13 +314,8 @@ export const requestReminderPermissions = async () => {
     displayPermissions = await LocalNotifications.requestPermissions();
   }
 
-  const exactAlarmGranted = isAndroidPlatform()
-    ? (await LocalNotifications.checkExactNotificationSetting()).exact_alarm === 'granted'
-    : true;
-
   return {
     displayGranted: displayPermissions.display === 'granted',
-    exactAlarmGranted,
   };
 };
 

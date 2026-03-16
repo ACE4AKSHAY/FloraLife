@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Plant, PlantPhoto, Reminder, ReminderIntervalHours, ReminderScheduleType, Species } from '../types';
 import {
   BellOff,
@@ -27,7 +27,6 @@ import {
   formatReminderModeChip,
   formatReminderScheduleLabel,
   isReminderActive,
-  isReminderOverdue,
   isRepeatingReminder,
   normalizeReminder,
   requestReminderPermissions,
@@ -41,8 +40,6 @@ interface PlantDetailViewProps {
   onUpdate: () => void;
 }
 
-const REMINDER_INTERVAL_OPTIONS: ReminderIntervalHours[] = [4, 6, 8, 12];
-
 const getTodayInputValue = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -50,6 +47,23 @@ const getTodayInputValue = () => {
   const day = `${now.getDate()}`.padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const formatDateOnly = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const day = `${date.getDate()}`.padStart(2, '0');
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const formatTimeOnly = (timestamp: number) =>
+  new Date(timestamp).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+const formatDateTime = (timestamp: number) => `${formatDateOnly(timestamp)}, ${formatTimeOnly(timestamp)}`;
 
 const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBack, onUpdate }) => {
   const [activeTab, setActiveTab] = useState<'Photos' | 'Lifecycle' | 'Care Log' | 'Reminders'>('Photos');
@@ -74,8 +88,14 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
   const [newPhotoNote, setNewPhotoNote] = useState('');
   const [tempPhoto, setTempPhoto] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [clockNow, setClockNow] = useState(Date.now());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => setClockNow(Date.now()), 30000);
+    return () => window.clearInterval(timerId);
+  }, []);
 
   const dayCount = Math.floor((Date.now() - plant.plantedAt) / (1000 * 60 * 60 * 24));
   const progress = Math.min(100, Math.round((dayCount / species.durationDays) * 100));
@@ -88,11 +108,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
   });
 
   const estimatedHarvestDate = new Date(plant.plantedAt + species.durationDays * 24 * 60 * 60 * 1000);
-  const estimatedHarvest = estimatedHarvestDate.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const estimatedHarvest = formatDateOnly(estimatedHarvestDate.getTime());
 
   const showToast = (message: string) => {
     setToast(message);
@@ -218,9 +234,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
           plant.reminders.map(currentReminder =>
             currentReminder.id === reminder.id ? resumedReminder : currentReminder,
           ),
-          permissions.exactAlarmGranted
-            ? 'Repeating reminder resumed.'
-            : 'Reminder resumed. Android may delay it slightly until Exact alarms are enabled.',
+          'Reminder resumed.',
         );
         return;
       }
@@ -235,7 +249,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
         plant.reminders.map(currentReminder =>
           currentReminder.id === reminder.id ? pausedReminder : currentReminder,
         ),
-        'Repeating reminder paused.',
+        'Reminder paused.',
       );
       return;
     }
@@ -280,9 +294,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
       plant.reminders.map(currentReminder =>
         currentReminder.id === reminder.id ? reopenedReminder : currentReminder,
       ),
-      permissions.exactAlarmGranted
-        ? 'Reminder reactivated.'
-        : 'Reminder reactivated. Android may delay it slightly until Exact alarms are enabled.',
+      'Reminder reactivated.',
     );
   };
 
@@ -322,6 +334,11 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
         return;
       }
 
+      if (newReminder.scheduleType === 'interval' && (newReminder.intervalHours < 1 || newReminder.intervalHours > 24)) {
+        showToast('Repeat hours must be between 1 and 24.');
+        return;
+      }
+
       const reminder: Reminder = {
         id: Date.now().toString(),
         type: newReminder.type,
@@ -342,11 +359,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
       storageService.updatePlant(updatedPlant);
       onUpdate();
       closeReminderModal();
-      showToast(
-        permissions.exactAlarmGranted
-          ? 'Native reminder saved.'
-          : 'Reminder saved. Android may delay it slightly until Exact alarms are enabled.',
-      );
+      showToast('Reminder saved.');
     } finally {
       setIsSavingReminder(false);
     }
@@ -474,7 +487,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                         <p className="text-[9px] text-white font-bold leading-tight line-clamp-2">{photo.note || 'No note'}</p>
                       </div>
                       <div className="absolute top-2 right-2 px-2 py-0.5 bg-white/90 dark:bg-stone-900/90 rounded-full text-[8px] font-black text-stone-600 dark:text-stone-300 shadow-sm uppercase">
-                        {new Date(photo.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {formatDateOnly(photo.timestamp)}
                       </div>
                     </div>
                   ))}
@@ -539,12 +552,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                       <div className="flex-1">
                         <p className="text-sm font-black text-stone-800 dark:text-stone-100">{log.type}</p>
                         <p className="text-[10px] text-stone-400 dark:text-stone-500 font-bold uppercase">
-                          {new Date(log.timestamp).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                          , {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatDateTime(log.timestamp)}
                         </p>
                       </div>
                     </div>
@@ -559,12 +567,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">⏰</span>
-                  <div>
-                    <h3 className="text-lg font-black text-stone-800 dark:text-stone-100">Native Reminders</h3>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
-                      Works even after the app closes
-                    </p>
-                  </div>
+                  <h3 className="text-lg font-black text-stone-800 dark:text-stone-100">Reminders</h3>
                 </div>
                 <button
                   onClick={() => setShowAddReminder(true)}
@@ -584,7 +587,10 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                     const normalizedReminder = normalizeReminder(reminder);
                     const repeating = isRepeatingReminder(normalizedReminder);
                     const active = isReminderActive(normalizedReminder);
-                    const overdue = isReminderOverdue(normalizedReminder);
+                    const overdue =
+                      normalizedReminder.scheduleType === 'once' &&
+                      active &&
+                      normalizedReminder.dateTime < clockNow;
 
                     return (
                       <div
@@ -639,15 +645,6 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                               </p>
                               <p className="text-[10px] text-stone-400 dark:text-stone-500 font-bold uppercase">
                                 <Clock size={10} className="inline mr-1" /> {formatReminderScheduleLabel(normalizedReminder)}
-                              </p>
-                              <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium pt-1">
-                                {repeating
-                                  ? active
-                                    ? 'System reminder is active and will keep repeating until you pause it.'
-                                    : 'This repeating reminder is paused.'
-                                  : normalizedReminder.completed
-                                    ? 'This one-time reminder was marked complete.'
-                                    : 'This one-time reminder will fire once at the scheduled time.'}
                               </p>
                             </div>
                           </div>
@@ -744,7 +741,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#1e1e1c] w-full max-w-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 transition-colors overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black text-stone-800 dark:text-stone-100">New Native Reminder</h2>
+              <h2 className="text-xl font-black text-stone-800 dark:text-stone-100">New Reminder</h2>
               <button onClick={closeReminderModal} className="text-stone-400 dark:text-stone-500">
                 <X size={20} />
               </button>
@@ -753,7 +750,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
             <div className="space-y-5">
               <div>
                 <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
-                  Task Type
+                  Type
                 </label>
                 <select
                   className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 transition-colors"
@@ -774,7 +771,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
 
               <div>
                 <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
-                  Task Name
+                  Name
                 </label>
                 <input
                   type="text"
@@ -792,7 +789,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
 
               <div>
                 <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
-                  Repeat Pattern
+                  Repeat
                 </label>
                 <select
                   className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 transition-colors"
@@ -832,24 +829,28 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
               {newReminder.scheduleType === 'interval' && (
                 <div>
                   <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
-                    Repeat Every
+                    Every
                   </label>
-                  <select
-                    className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 transition-colors"
-                    value={newReminder.intervalHours}
-                    onChange={event =>
-                      setNewReminder(currentReminder => ({
-                        ...currentReminder,
-                        intervalHours: Number(event.target.value) as ReminderIntervalHours,
-                      }))
-                    }
-                  >
-                    {REMINDER_INTERVAL_OPTIONS.map(intervalHours => (
-                      <option key={intervalHours} value={intervalHours}>
-                        Every {intervalHours} hours
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      step={1}
+                      inputMode="numeric"
+                      className="flex-1 bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm font-bold dark:text-stone-100 transition-colors"
+                      value={newReminder.intervalHours}
+                      onChange={event =>
+                        setNewReminder(currentReminder => ({
+                          ...currentReminder,
+                          intervalHours: Math.min(24, Math.max(1, Math.round(Number(event.target.value) || 1))) as ReminderIntervalHours,
+                        }))
+                      }
+                    />
+                    <span className="px-4 py-3 rounded-xl bg-stone-50 dark:bg-stone-900 text-xs font-bold text-stone-500 dark:text-stone-400">
+                      hours
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -870,21 +871,18 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                 />
               </div>
 
-              <div className="p-4 rounded-2xl border border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900">
-                <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400 mb-2">
-                  Native Android Reminder
+              {newReminder.scheduleType === 'once' && (
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 px-1">
+                  Keeps reminding every 5 minutes until you mark it done.
                 </p>
-                <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
-                  This reminder is saved to the Android system notification scheduler, so it can still ring after FloraLife is closed. You can change the sound from Android notification settings.
-                </p>
-              </div>
+              )}
 
               <button
                 disabled={isSavingReminder}
                 onClick={() => void handleSaveReminder()}
                 className="w-full bg-[#559a73] dark:bg-[#437a5b] disabled:opacity-50 text-white py-4 rounded-2xl font-bold shadow-lg"
               >
-                {isSavingReminder ? 'Saving...' : 'Save Native Reminder'}
+                {isSavingReminder ? 'Saving...' : 'Save Reminder'}
               </button>
             </div>
           </div>

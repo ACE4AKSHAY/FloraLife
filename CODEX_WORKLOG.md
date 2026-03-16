@@ -74,6 +74,23 @@
   - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
+- Reminder follow-up and UI refinement:
+  - Reworked native reminder scheduling so one-time reminders keep re-alerting every 5 minutes until marked done.
+  - Added future rescheduling for interval reminders using the selected hour count instead of fixed 4/6/8/12 hour presets.
+  - Kept the interval input dynamic in the UI with a numeric hours field.
+  - Added a live timer in Plant Detail so overdue reminders turn red while the app stays open.
+  - Simplified reminder wording in Plant Detail by removing extra explanatory blocks and shortening action messages.
+  - Switched reminder date/time display to `dd/mm/yyyy` and 12-hour time.
+  - Applied the same compact date formatting to harvest, photo, and care-log dates in Plant Detail.
+- Android back button follow-up:
+  - Found that `disableBackButtonHandler: true` in Capacitor App config was disabling the Android back callback entirely.
+  - Removed that config override and explicitly re-enabled the Capacitor back button handler at runtime before registering the custom listener.
+  - Synced Capacitor again so the updated native config was written into `android/app/src/main/assets/capacitor.config.json`.
+- Verification:
+  - TypeScript check passed again with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed again with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed again with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android debug build passed again with `.\gradlew.bat :app:assembleDebug`.
 - Follow-up navigation fix:
   - Replaced the custom document `backbutton` listener with the official `@capacitor/app` Android back button listener.
   - Enabled Capacitor App plugin back-button control through `capacitor.config.ts`.

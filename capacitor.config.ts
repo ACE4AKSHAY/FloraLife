@@ -10,11 +10,6 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
   },
-  plugins: {
-    App: {
-      disableBackButtonHandler: true,
-    },
-  },
 };
 
 export default config;

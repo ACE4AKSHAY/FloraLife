@@ -62,7 +62,7 @@ export interface Reminder {
 }
 
 export type ReminderScheduleType = 'once' | 'daily' | 'interval';
-export type ReminderIntervalHours = 4 | 6 | 8 | 12;
+export type ReminderIntervalHours = number;
 
 export interface ScanResult {
   status: 'Healthy' | 'Diseased' | 'Needs Review';
