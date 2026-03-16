@@ -107,10 +107,7 @@ public class TFLitePlugin extends Plugin {
                 return;
             }
 
-            Bitmap resized =
-                    Bitmap.createScaledBitmap(bitmap, 224, 224, true);
-
-            Object input = createModelInput(resized);
+            Object input = createModelInput(bitmap);
 
             float[][] output = new float[1][labels.size()];
 
@@ -146,13 +143,14 @@ public class TFLitePlugin extends Plugin {
         DataType inputType = interpreter.getInputTensor(0).dataType();
         int height = inputShape[1];
         int width = inputShape[2];
+        Bitmap resized = Bitmap.createScaledBitmap(bitmap, width, height, true);
 
         if (inputType == DataType.FLOAT32) {
             float[][][][] input = new float[1][height][width][3];
 
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    int pixel = bitmap.getPixel(x, y);
+                    int pixel = resized.getPixel(x, y);
 
                     input[0][y][x][0] = ((pixel >> 16) & 0xFF) / 255.0f;
                     input[0][y][x][1] = ((pixel >> 8) & 0xFF) / 255.0f;
@@ -167,7 +165,7 @@ public class TFLitePlugin extends Plugin {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int pixel = bitmap.getPixel(x, y);
+                int pixel = resized.getPixel(x, y);
 
                 input[0][y][x][0] = (byte) ((pixel >> 16) & 0xFF);
                 input[0][y][x][1] = (byte) ((pixel >> 8) & 0xFF);

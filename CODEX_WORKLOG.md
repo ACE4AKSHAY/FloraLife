@@ -43,3 +43,6 @@
     - prediction completed successfully
   - Example successful prediction:
     - `pepper bell bacterial spot (0.75290024)`
+- Follow-up quality fix:
+  - Corrected image resizing in `TFLitePlugin` to use the model's actual input dimensions (`width`/`height` from the input tensor) instead of a hard-coded `224x224`.
+  - Android Gradle build completed successfully again after this correction.
