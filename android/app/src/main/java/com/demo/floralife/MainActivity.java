@@ -9,15 +9,4 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TFLitePlugin.class);
         super.load();
     }
-
-    @Override
-    @SuppressWarnings("deprecation")
-    public void onBackPressed() {
-        if (getBridge() != null) {
-            getBridge().triggerJSEvent("backbutton", "document");
-            return;
-        }
-
-        super.onBackPressed();
-    }
 }

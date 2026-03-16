@@ -1,8 +1,8 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { AppTab, Plant, Species, Reminder } from './types';
+import React, { useEffect, useRef, useState } from 'react';
+import { App as CapApp } from '@capacitor/app';
+import { AppTab, Plant, Species } from './types';
 import { storageService } from './services/storageService';
-import { notificationService } from './services/notificationService';
+import { syncAllReminderSchedules } from './services/nativeReminderService';
 import HomeView from './views/Home';
 import MyPlantsView from './views/MyPlants';
 import ScanView from './views/Scan';
@@ -10,7 +10,7 @@ import GuidesView from './views/Guides';
 import ShopView from './views/Shop';
 import PlantDetailView from './views/PlantDetail';
 import PlantLibraryView from './views/PlantLibrary';
-import { Home, Leaf, Scan, BookOpen, ShoppingBag, BellRing, X } from 'lucide-react';
+import { Home, Leaf, Scan, BookOpen, ShoppingBag } from 'lucide-react';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppTab>(AppTab.HOME);
@@ -18,68 +18,38 @@ const App: React.FC = () => {
   const [showLibrary, setShowLibrary] = useState(false);
   const [plants, setPlants] = useState<Plant[]>([]);
   const [library, setLibrary] = useState<Species[]>([]);
-  const [alertingReminders, setAlertingReminders] = useState<{plantName: string, reminder: Reminder}[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('flora_life_dark_mode');
     return saved === 'true';
   });
 
-  const checkInterval = useRef<any>(null);
-  const audioContext = useRef<AudioContext | null>(null);
+  const activeTabRef = useRef(activeTab);
+  const selectedPlantIdRef = useRef(selectedPlantId);
+  const showLibraryRef = useRef(showLibrary);
 
   useEffect(() => {
-    setPlants(storageService.getPlants());
-    setLibrary(storageService.getLibrary());
-    
-    notificationService.requestPermission();
-
-    // Check reminders every 10 seconds
-    checkInterval.current = setInterval(() => {
-      checkReminders();
-    }, 10000);
-
-    return () => clearInterval(checkInterval.current);
-  }, []);
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    localStorage.setItem('flora_life_dark_mode', String(isDarkMode));
-  }, [isDarkMode]);
+    selectedPlantIdRef.current = selectedPlantId;
+  }, [selectedPlantId]);
 
-  const playAlertSound = () => {
-    try {
-      if (!audioContext.current) {
-        audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      const ctx = audioContext.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5); // A4
-      
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-    } catch (e) {
-      console.warn("Audio play failed:", e);
-    }
-  };
+  useEffect(() => {
+    showLibraryRef.current = showLibrary;
+  }, [showLibrary]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
-  const refreshData = () => {
-    setPlants(storageService.getPlants());
+  const refreshData = async () => {
+    const storedPlants = storageService.getPlants();
+    const syncedPlants = await syncAllReminderSchedules(storedPlants);
+
+    if (JSON.stringify(storedPlants) !== JSON.stringify(syncedPlants)) {
+      storageService.savePlants(syncedPlants);
+    }
+
+    setPlants(syncedPlants);
     setLibrary(storageService.getLibrary());
   };
 
@@ -89,111 +59,95 @@ const App: React.FC = () => {
     setActiveTab(AppTab.HOME);
   };
 
-  const exitNativeApp = () => {
-    const nativeNavigator = navigator as Navigator & {
-      app?: { exitApp?: () => void };
-    };
-    nativeNavigator.app?.exitApp?.();
+  const closeDetail = () => {
+    setSelectedPlantId(null);
+    void refreshData();
   };
 
   useEffect(() => {
-    const handleBackButton = (event: Event) => {
-      event.preventDefault();
+    void refreshData();
+  }, []);
 
-      if (selectedPlantId) {
-        closeDetail();
-        return;
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    localStorage.setItem('flora_life_dark_mode', String(isDarkMode));
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let backButtonHandle: { remove: () => Promise<void> } | undefined;
+    let appStateHandle: { remove: () => Promise<void> } | undefined;
+
+    const registerNativeListeners = async () => {
+      try {
+        backButtonHandle = await CapApp.addListener('backButton', async () => {
+          if (selectedPlantIdRef.current) {
+            closeDetail();
+            return;
+          }
+
+          if (showLibraryRef.current) {
+            setShowLibrary(false);
+            return;
+          }
+
+          if (activeTabRef.current !== AppTab.HOME) {
+            goHome();
+            return;
+          }
+
+          await CapApp.exitApp();
+        });
+
+        appStateHandle = await CapApp.addListener('appStateChange', async ({ isActive }) => {
+          if (!isMounted || !isActive) {
+            return;
+          }
+
+          await refreshData();
+        });
+      } catch (error) {
+        console.warn('Native App listeners unavailable:', error);
       }
-
-      if (showLibrary) {
-        setShowLibrary(false);
-        return;
-      }
-
-      if (activeTab !== AppTab.HOME) {
-        goHome();
-        return;
-      }
-
-      exitNativeApp();
     };
 
-    document.addEventListener('backbutton', handleBackButton);
+    void registerNativeListeners();
 
     return () => {
-      document.removeEventListener('backbutton', handleBackButton);
+      isMounted = false;
+      void backButtonHandle?.remove();
+      void appStateHandle?.remove();
     };
-  }, [activeTab, selectedPlantId, showLibrary]);
-
-  const checkReminders = () => {
-    const currentPlants = storageService.getPlants();
-    const now = Date.now();
-    let updatedAny = false;
-    const newAlerts: {plantName: string, reminder: Reminder}[] = [];
-
-    const newPlants = currentPlants.map(plant => {
-      let plantUpdated = false;
-      const newReminders = plant.reminders.map(rem => {
-        if (!rem.completed && rem.dateTime <= now) {
-          const shouldAlert = !rem.lastAlertTimestamp || (now - rem.lastAlertTimestamp >= 120000);
-          
-          if (shouldAlert) {
-            notificationService.sendNotification(
-              `Care Alert: ${plant.customName}`,
-              `Task: ${rem.title}`
-            );
-            
-            newAlerts.push({ plantName: plant.customName, reminder: rem });
-            playAlertSound();
-            
-            plantUpdated = true;
-            updatedAny = true;
-            return { ...rem, notified: true, lastAlertTimestamp: now };
-          }
-        }
-        return rem;
-      });
-
-      if (plantUpdated) {
-        return { ...plant, reminders: newReminders };
-      }
-      return plant;
-    });
-
-    if (updatedAny) {
-      storageService.savePlants(newPlants);
-      setPlants(newPlants);
-      setAlertingReminders(prev => [...prev, ...newAlerts]);
-    }
-  };
-
-  const handleDismissAlert = (reminderId: string) => {
-    setAlertingReminders(prev => prev.filter(a => a.reminder.id !== reminderId));
-  };
+  }, []);
 
   const navigateToDetail = (id: string) => {
     setSelectedPlantId(id);
   };
 
-  const closeDetail = () => {
-    setSelectedPlantId(null);
-    refreshData();
-  };
-
   const renderContent = () => {
     if (selectedPlantId) {
-      const plant = plants.find(p => p.id === selectedPlantId);
-      const species = library.find(s => s.id === (plant?.speciesId));
+      const plant = plants.find(currentPlant => currentPlant.id === selectedPlantId);
+      const species = library.find(currentSpecies => currentSpecies.id === plant?.speciesId);
+
       if (plant && species) {
-        return <PlantDetailView plant={plant} species={species} onBack={closeDetail} onUpdate={refreshData} />;
+        return <PlantDetailView plant={plant} species={species} onBack={closeDetail} onUpdate={() => void refreshData()} />;
       }
     }
 
     if (showLibrary) {
       return (
-        <PlantLibraryView 
-          onBack={() => setShowLibrary(false)} 
-          onAdd={() => { setShowLibrary(false); refreshData(); setActiveTab(AppTab.MY_PLANTS); }}
+        <PlantLibraryView
+          onBack={() => setShowLibrary(false)}
+          onAdd={() => {
+            setShowLibrary(false);
+            void refreshData();
+            setActiveTab(AppTab.MY_PLANTS);
+          }}
         />
       );
     }
@@ -201,9 +155,9 @@ const App: React.FC = () => {
     switch (activeTab) {
       case AppTab.HOME:
         return (
-          <HomeView 
-            plants={plants} 
-            onAddPlant={() => setShowLibrary(true)} 
+          <HomeView
+            plants={plants}
+            onAddPlant={() => setShowLibrary(true)}
             onScan={() => setActiveTab(AppTab.SCAN)}
             onNavigateGuide={() => setActiveTab(AppTab.GUIDES)}
             isDarkMode={isDarkMode}
@@ -212,11 +166,11 @@ const App: React.FC = () => {
         );
       case AppTab.MY_PLANTS:
         return (
-          <MyPlantsView 
-            plants={plants} 
-            library={library} 
+          <MyPlantsView
+            plants={plants}
+            library={library}
             onBackHome={goHome}
-            onAdd={() => setShowLibrary(true)} 
+            onAdd={() => setShowLibrary(true)}
             onSelectPlant={navigateToDetail}
           />
         );
@@ -227,16 +181,29 @@ const App: React.FC = () => {
       case AppTab.SHOP:
         return <ShopView onBackHome={goHome} />;
       default:
-        return <HomeView plants={plants} onAddPlant={() => setShowLibrary(true)} onScan={() => setActiveTab(AppTab.SCAN)} onNavigateGuide={() => setActiveTab(AppTab.GUIDES)} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />;
+        return (
+          <HomeView
+            plants={plants}
+            onAddPlant={() => setShowLibrary(true)}
+            onScan={() => setActiveTab(AppTab.SCAN)}
+            onNavigateGuide={() => setActiveTab(AppTab.GUIDES)}
+            isDarkMode={isDarkMode}
+            toggleDarkMode={toggleDarkMode}
+          />
+        );
     }
   };
 
-  const TabButton = ({ tab, icon: Icon, label }: { tab: AppTab, icon: any, label: string }) => (
+  const TabButton = ({ tab, icon: Icon, label }: { tab: AppTab; icon: any; label: string }) => (
     <button
-      onClick={() => { setActiveTab(tab); setSelectedPlantId(null); setShowLibrary(false); }}
+      onClick={() => {
+        setActiveTab(tab);
+        setSelectedPlantId(null);
+        setShowLibrary(false);
+      }}
       className={`flex flex-col items-center justify-center w-full py-2 transition-colors ${
-        activeTab === tab && !selectedPlantId && !showLibrary 
-          ? 'text-emerald-700 dark:text-emerald-400' 
+        activeTab === tab && !selectedPlantId && !showLibrary
+          ? 'text-emerald-700 dark:text-emerald-400'
           : 'text-stone-400 dark:text-stone-500'
       }`}
     >
@@ -247,28 +214,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen pt-[env(safe-area-inset-top)] bg-[#fdfdfb] dark:bg-[#121211] text-stone-800 dark:text-stone-100 transition-colors duration-300">
-      <main className="flex-1 overflow-y-auto pb-28 pt-3">
-        {renderContent()}
-      </main>
-
-      {alertingReminders.length > 0 && (
-        <div className="fixed top-4 left-4 right-4 z-[100] space-y-2 max-w-[448px] mx-auto pointer-events-none">
-          {alertingReminders.map((alert, i) => (
-            <div key={i} className="bg-red-600 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between animate-bounce pointer-events-auto">
-              <div className="flex items-center gap-3">
-                <BellRing className="animate-pulse" size={20} />
-                <div>
-                  <p className="text-xs font-black uppercase tracking-widest leading-none mb-1">Critical Reminder</p>
-                  <p className="text-sm font-bold">{alert.plantName}: {alert.reminder.title}</p>
-                </div>
-              </div>
-              <button onClick={() => handleDismissAlert(alert.reminder.id)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <main className="flex-1 overflow-y-auto pb-28 pt-3">{renderContent()}</main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#1e1e1c] border-t border-stone-100 dark:border-stone-800 flex justify-around items-center px-4 pb-[env(safe-area-inset-bottom)] shadow-lg max-w-[480px] mx-auto z-50 transition-colors duration-300">
         <TabButton tab={AppTab.HOME} icon={Home} label="Home" />

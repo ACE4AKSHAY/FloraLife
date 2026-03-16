@@ -1,8 +1,38 @@
-
-import React, { useState, useRef } from 'react';
-import { Plant, Species, Reminder, PlantPhoto } from '../types';
-import { ChevronLeft, Trash2, Droplets, Leaf, Scissors, Camera, Plus, Calendar, CheckCircle2, Clock, X, Image as ImageIcon, Circle, Upload, MessageSquare } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Plant, PlantPhoto, Reminder, ReminderIntervalHours, ReminderScheduleType, Species } from '../types';
+import {
+  BellOff,
+  BellRing,
+  Calendar,
+  Camera,
+  CheckCircle2,
+  ChevronLeft,
+  Circle,
+  Clock,
+  Droplets,
+  Image as ImageIcon,
+  Leaf,
+  MessageSquare,
+  Plus,
+  Scissors,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { storageService } from '../services/storageService';
+import {
+  buildOneTimeReminderTimestamp,
+  buildRepeatingReminderTimestamp,
+  cancelReminderSchedule,
+  formatReminderModeChip,
+  formatReminderScheduleLabel,
+  isReminderActive,
+  isReminderOverdue,
+  isRepeatingReminder,
+  normalizeReminder,
+  requestReminderPermissions,
+  syncReminderSchedule,
+} from '../services/nativeReminderService';
 
 interface PlantDetailViewProps {
   plant: Plant;
@@ -11,44 +41,91 @@ interface PlantDetailViewProps {
   onUpdate: () => void;
 }
 
+const REMINDER_INTERVAL_OPTIONS: ReminderIntervalHours[] = [4, 6, 8, 12];
+
+const getTodayInputValue = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, '0');
+  const day = `${now.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBack, onUpdate }) => {
   const [activeTab, setActiveTab] = useState<'Photos' | 'Lifecycle' | 'Care Log' | 'Reminders'>('Photos');
   const [showAddReminder, setShowAddReminder] = useState(false);
   const [showAddPhoto, setShowAddPhoto] = useState(false);
-  const [newReminder, setNewReminder] = useState({ title: '', type: 'Water' as any, time: '08:00' });
+  const [isSavingReminder, setIsSavingReminder] = useState(false);
+  const [newReminder, setNewReminder] = useState<{
+    title: string;
+    type: Reminder['type'];
+    scheduleType: ReminderScheduleType;
+    date: string;
+    time: string;
+    intervalHours: ReminderIntervalHours;
+  }>({
+    title: '',
+    type: 'Water',
+    scheduleType: 'once',
+    date: getTodayInputValue(),
+    time: '08:00',
+    intervalHours: 6,
+  });
   const [newPhotoNote, setNewPhotoNote] = useState('');
   const [tempPhoto, setTempPhoto] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const dayCount = Math.floor((Date.now() - plant.plantedAt) / (1000 * 60 * 60 * 24));
   const progress = Math.min(100, Math.round((dayCount / species.durationDays) * 100));
-  
-  const currentStageInfo = species.stages.find((st, i) => {
-    const nextSt = species.stages[i+1];
-    const startDay = parseInt(st.days.split('-')[0]);
-    const endDay = nextSt ? parseInt(nextSt.days.split('-')[0]) : 999;
+
+  const currentStageInfo = species.stages.find((stage, index) => {
+    const nextStage = species.stages[index + 1];
+    const startDay = parseInt(stage.days.split('-')[0], 10);
+    const endDay = nextStage ? parseInt(nextStage.days.split('-')[0], 10) : 999;
     return dayCount >= startDay && dayCount < endDay;
   });
 
-  const estimatedHarvestDate = new Date(plant.plantedAt + (species.durationDays * 24 * 60 * 60 * 1000));
+  const estimatedHarvestDate = new Date(plant.plantedAt + species.durationDays * 24 * 60 * 60 * 1000);
   const estimatedHarvest = estimatedHarvestDate.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
   });
 
-  const showToast = (msg: string) => {
-    setToast(msg);
+  const showToast = (message: string) => {
+    setToast(message);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleDelete = () => {
-    if (confirm("Are you sure you want to delete this plant?")) {
-      storageService.deletePlant(plant.id);
-      onBack();
+  const resetReminderDraft = () => {
+    setNewReminder({
+      title: '',
+      type: 'Water',
+      scheduleType: 'once',
+      date: getTodayInputValue(),
+      time: '08:00',
+      intervalHours: 6,
+    });
+  };
+
+  const closeReminderModal = () => {
+    setShowAddReminder(false);
+    resetReminderDraft();
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this plant?')) {
+      return;
     }
+
+    for (const reminder of plant.reminders) {
+      await cancelReminderSchedule(reminder.id);
+    }
+
+    storageService.deletePlant(plant.id);
+    onBack();
   };
 
   const logCare = (type: 'Water' | 'Feed' | 'Prune' | 'Photo') => {
@@ -56,18 +133,23 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
       setShowAddPhoto(true);
       return;
     }
-    const updatedPlant = { 
-      ...plant, 
-      careLogs: [{ id: Date.now().toString(), type, timestamp: Date.now() }, ...plant.careLogs]
+
+    const updatedPlant: Plant = {
+      ...plant,
+      careLogs: [{ id: Date.now().toString(), type, timestamp: Date.now() }, ...plant.careLogs],
     };
+
     storageService.updatePlant(updatedPlant);
     onUpdate();
     showToast(`${type} logged!`);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
 
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -77,19 +159,21 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
   };
 
   const savePhoto = () => {
-    if (!tempPhoto) return;
-    
+    if (!tempPhoto) {
+      return;
+    }
+
     const newPhoto: PlantPhoto = {
       id: Date.now().toString(),
       url: tempPhoto,
       timestamp: Date.now(),
-      note: newPhotoNote
+      note: newPhotoNote,
     };
 
     const updatedPlant: Plant = {
       ...plant,
       photos: [newPhoto, ...plant.photos],
-      careLogs: [{ id: `photo-log-${Date.now()}`, type: 'Photo', timestamp: Date.now() }, ...plant.careLogs]
+      careLogs: [{ id: `photo-log-${Date.now()}`, type: 'Photo', timestamp: Date.now() }, ...plant.careLogs],
     };
 
     storageService.updatePlant(updatedPlant);
@@ -100,45 +184,194 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
     showToast('Photo added to journal!');
   };
 
-  const toggleReminder = (reminderId: string) => {
-    const updatedReminders = plant.reminders.map(r => 
-      r.id === reminderId ? { ...r, completed: !r.completed, lastAlertTimestamp: undefined } : r
+  const persistReminderList = async (updatedReminders: Reminder[], successMessage: string) => {
+    const updatedPlant: Plant = {
+      ...plant,
+      reminders: updatedReminders,
+    };
+
+    storageService.updatePlant(updatedPlant);
+    onUpdate();
+    showToast(successMessage);
+  };
+
+  const toggleReminder = async (reminder: Reminder) => {
+    const normalizedReminder = normalizeReminder(reminder);
+
+    if (isRepeatingReminder(normalizedReminder)) {
+      if (normalizedReminder.enabled === false) {
+        const permissions = await requestReminderPermissions();
+
+        if (!permissions.displayGranted) {
+          showToast('Allow notifications first to resume this reminder.');
+          return;
+        }
+
+        const resumedReminder: Reminder = {
+          ...normalizedReminder,
+          enabled: true,
+          completed: false,
+        };
+
+        await syncReminderSchedule(plant.customName, resumedReminder);
+        await persistReminderList(
+          plant.reminders.map(currentReminder =>
+            currentReminder.id === reminder.id ? resumedReminder : currentReminder,
+          ),
+          permissions.exactAlarmGranted
+            ? 'Repeating reminder resumed.'
+            : 'Reminder resumed. Android may delay it slightly until Exact alarms are enabled.',
+        );
+        return;
+      }
+
+      const pausedReminder: Reminder = {
+        ...normalizedReminder,
+        enabled: false,
+      };
+
+      await cancelReminderSchedule(pausedReminder.id);
+      await persistReminderList(
+        plant.reminders.map(currentReminder =>
+          currentReminder.id === reminder.id ? pausedReminder : currentReminder,
+        ),
+        'Repeating reminder paused.',
+      );
+      return;
+    }
+
+    if (!normalizedReminder.completed) {
+      const completedReminder: Reminder = {
+        ...normalizedReminder,
+        completed: true,
+        enabled: false,
+      };
+
+      await cancelReminderSchedule(completedReminder.id);
+      await persistReminderList(
+        plant.reminders.map(currentReminder =>
+          currentReminder.id === reminder.id ? completedReminder : currentReminder,
+        ),
+        'Reminder marked done.',
+      );
+      return;
+    }
+
+    if (normalizedReminder.dateTime <= Date.now()) {
+      showToast('This reminder time already passed. Create a new reminder instead.');
+      return;
+    }
+
+    const permissions = await requestReminderPermissions();
+
+    if (!permissions.displayGranted) {
+      showToast('Allow notifications first to reactivate this reminder.');
+      return;
+    }
+
+    const reopenedReminder: Reminder = {
+      ...normalizedReminder,
+      completed: false,
+      enabled: true,
+    };
+
+    await syncReminderSchedule(plant.customName, reopenedReminder);
+    await persistReminderList(
+      plant.reminders.map(currentReminder =>
+        currentReminder.id === reminder.id ? reopenedReminder : currentReminder,
+      ),
+      permissions.exactAlarmGranted
+        ? 'Reminder reactivated.'
+        : 'Reminder reactivated. Android may delay it slightly until Exact alarms are enabled.',
     );
-    const updatedPlant = { ...plant, reminders: updatedReminders };
-    storageService.updatePlant(updatedPlant);
-    onUpdate();
   };
 
-  const deleteReminder = (reminderId: string) => {
-    const updatedReminders = plant.reminders.filter(r => r.id !== reminderId);
-    const updatedPlant = { ...plant, reminders: updatedReminders };
-    storageService.updatePlant(updatedPlant);
-    onUpdate();
-    showToast('Reminder deleted');
+  const deleteReminder = async (reminderId: string) => {
+    await cancelReminderSchedule(reminderId);
+    await persistReminderList(
+      plant.reminders.filter(reminder => reminder.id !== reminderId),
+      'Reminder deleted.',
+    );
   };
 
-  const formatTime24 = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+  const handleSaveReminder = async () => {
+    setIsSavingReminder(true);
+
+    try {
+      const permissions = await requestReminderPermissions();
+
+      if (!permissions.displayGranted) {
+        showToast('Allow notifications to save native reminders.');
+        return;
+      }
+
+      const title = newReminder.title.trim() || `${newReminder.type} ${plant.customName}`;
+
+      const dateTime =
+        newReminder.scheduleType === 'once'
+          ? buildOneTimeReminderTimestamp(newReminder.date, newReminder.time)
+          : buildRepeatingReminderTimestamp(newReminder.time, newReminder.scheduleType, newReminder.intervalHours);
+
+      if (Number.isNaN(dateTime)) {
+        showToast('Choose a valid date and time.');
+        return;
+      }
+
+      if (newReminder.scheduleType === 'once' && dateTime <= Date.now()) {
+        showToast('Choose a future date and time for one-time reminders.');
+        return;
+      }
+
+      const reminder: Reminder = {
+        id: Date.now().toString(),
+        type: newReminder.type,
+        title,
+        dateTime,
+        completed: false,
+        scheduleType: newReminder.scheduleType,
+        intervalHours: newReminder.scheduleType === 'interval' ? newReminder.intervalHours : undefined,
+        enabled: true,
+      };
+
+      const syncedReminder = await syncReminderSchedule(plant.customName, reminder);
+      const updatedPlant: Plant = {
+        ...plant,
+        reminders: [...plant.reminders, syncedReminder],
+      };
+
+      storageService.updatePlant(updatedPlant);
+      onUpdate();
+      closeReminderModal();
+      showToast(
+        permissions.exactAlarmGranted
+          ? 'Native reminder saved.'
+          : 'Reminder saved. Android may delay it slightly until Exact alarms are enabled.',
+      );
+    } finally {
+      setIsSavingReminder(false);
+    }
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-[#fdfdfb] dark:bg-[#121211] transition-colors duration-300">
       <header className="p-5 flex items-center justify-between sticky top-0 bg-[#fdfdfb]/80 dark:bg-[#121211]/80 backdrop-blur-md z-20">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1 -ml-1 text-stone-400 dark:text-stone-500"><ChevronLeft size={28} /></button>
+          <button onClick={onBack} className="p-1 -ml-1 text-stone-400 dark:text-stone-500">
+            <ChevronLeft size={28} />
+          </button>
           <div>
             <h1 className="text-xl font-black text-stone-800 dark:text-stone-100 tracking-tight">{plant.customName}</h1>
-            <p className="text-[11px] text-stone-300 dark:text-stone-600 font-bold uppercase tracking-tight">{species.scientificName}</p>
+            <p className="text-[11px] text-stone-300 dark:text-stone-600 font-bold uppercase tracking-tight">
+              {species.scientificName}
+            </p>
           </div>
         </div>
-        <button onClick={handleDelete} className="text-red-300 dark:text-red-900 hover:text-red-500 transition-colors"><Trash2 size={20} /></button>
+        <button onClick={() => void handleDelete()} className="text-red-300 dark:text-red-900 hover:text-red-500 transition-colors">
+          <Trash2 size={20} />
+        </button>
       </header>
 
       <div className="p-5 space-y-6">
-        {/* Progress Card */}
         <div className="bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 p-7 rounded-[40px] shadow-sm relative overflow-hidden transition-colors">
           <div className="flex items-center gap-6 relative z-10">
             <span className="text-6xl">{species.emoji}</span>
@@ -148,15 +381,17 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                   <span className="text-sm">{currentStageInfo?.emoji || '🌱'}</span> {currentStageInfo?.stage || 'Growing'}
                 </span>
                 <span className="px-3 py-1 bg-stone-50 dark:bg-stone-900 text-stone-400 dark:text-stone-500 text-[10px] font-bold rounded-full flex items-center gap-1">
-                   Day {dayCount}
+                  Day {dayCount}
                 </span>
               </div>
-              <p className="text-stone-400 dark:text-stone-500 text-[11px] font-medium">Planted {dayCount === 0 ? 'today' : `${dayCount} days ago`}</p>
+              <p className="text-stone-400 dark:text-stone-500 text-[11px] font-medium">
+                Planted {dayCount === 0 ? 'today' : `${dayCount} days ago`}
+              </p>
               <div className="w-full h-2.5 bg-stone-50 dark:bg-stone-900 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-[#8b7e74] dark:bg-[#5c534d] rounded-full transition-all duration-1000"
                   style={{ width: `${progress}%` }}
-                ></div>
+                />
               </div>
               <p className="text-right text-[10px] font-black text-stone-800 dark:text-stone-100">{progress}%</p>
             </div>
@@ -167,34 +402,34 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="grid grid-cols-4 gap-3">
           {[
             { icon: Droplets, label: 'Water', type: 'Water', color: 'text-blue-400' },
             { icon: Leaf, label: 'Feed', type: 'Feed', color: 'text-emerald-400' },
             { icon: Scissors, label: 'Prune', type: 'Prune', color: 'text-stone-400' },
-            { icon: Camera, label: 'Photo', type: 'Photo', color: 'text-stone-400' }
-          ].map((action) => (
-            <button 
+            { icon: Camera, label: 'Photo', type: 'Photo', color: 'text-stone-400' },
+          ].map(action => (
+            <button
               key={action.label}
-              onClick={() => logCare(action.type as any)}
+              onClick={() => logCare(action.type as 'Water' | 'Feed' | 'Prune' | 'Photo')}
               className="bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 py-4 rounded-2xl flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-all"
             >
               <action.icon size={22} className={action.color} strokeWidth={1.5} />
-              <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">{action.label}</span>
+              <span className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">
+                {action.label}
+              </span>
             </button>
           ))}
         </div>
 
-        {/* Tabs */}
         <div className="flex bg-[#8b7e74]/10 dark:bg-[#5c534d]/20 p-1.5 rounded-[20px]">
-          {['Photos', 'Lifecycle', 'Care Log', 'Reminders'].map((tab) => (
+          {['Photos', 'Lifecycle', 'Care Log', 'Reminders'].map(tab => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab as any)}
+              onClick={() => setActiveTab(tab as 'Photos' | 'Lifecycle' | 'Care Log' | 'Reminders')}
               className={`flex-1 py-3 text-[11px] font-bold rounded-xl transition-all ${
-                activeTab === tab 
-                  ? 'bg-white dark:bg-[#1e1e1c] text-stone-800 dark:text-stone-100 shadow-sm' 
+                activeTab === tab
+                  ? 'bg-white dark:bg-[#1e1e1c] text-stone-800 dark:text-stone-100 shadow-sm'
                   : 'text-stone-400 dark:text-stone-500'
               }`}
             >
@@ -203,7 +438,6 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
           ))}
         </div>
 
-        {/* Tab Content */}
         <div className="bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 p-6 rounded-[40px] shadow-sm min-h-[300px] transition-colors">
           {activeTab === 'Photos' && (
             <div className="space-y-6">
@@ -212,29 +446,35 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                   <span className="text-xl">📸</span>
                   <h3 className="text-lg font-black text-stone-800 dark:text-stone-100">Photo Journal ({plant.photos.length})</h3>
                 </div>
-                <button onClick={() => setShowAddPhoto(true)} className="p-2 bg-stone-50 dark:bg-stone-900 rounded-xl text-[#559a73]"><Plus size={20} /></button>
+                <button onClick={() => setShowAddPhoto(true)} className="p-2 bg-stone-50 dark:bg-stone-900 rounded-xl text-[#559a73]">
+                  <Plus size={20} />
+                </button>
               </div>
-              
+
               {plant.photos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 space-y-4">
-                   <div className="w-16 h-16 bg-stone-50 dark:bg-stone-900 rounded-2xl flex items-center justify-center border border-stone-100 dark:border-stone-800">
-                      <ImageIcon size={32} className="text-stone-200 dark:text-stone-700" />
-                   </div>
-                   <div className="text-center">
-                      <p className="text-sm font-bold text-stone-800 dark:text-stone-100">No photos yet</p>
-                      <p className="text-[11px] text-stone-400 dark:text-stone-500 font-medium">Document your plant's growth journey!</p>
-                   </div>
+                  <div className="w-16 h-16 bg-stone-50 dark:bg-stone-900 rounded-2xl flex items-center justify-center border border-stone-100 dark:border-stone-800">
+                    <ImageIcon size={32} className="text-stone-200 dark:text-stone-700" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-stone-800 dark:text-stone-100">No photos yet</p>
+                    <p className="text-[11px] text-stone-400 dark:text-stone-500 font-medium">Document your plant&apos;s growth journey!</p>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   {plant.photos.map(photo => (
                     <div key={photo.id} className="relative group">
-                      <img src={photo.url} className="w-full aspect-square object-cover rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800" alt="Plant Progress" />
+                      <img
+                        src={photo.url}
+                        className="w-full aspect-square object-cover rounded-2xl shadow-sm border border-stone-100 dark:border-stone-800"
+                        alt="Plant progress"
+                      />
                       <div className="absolute inset-x-0 bottom-0 p-2 bg-black/50 backdrop-blur-sm rounded-b-2xl opacity-0 group-hover:opacity-100 transition-opacity">
-                         <p className="text-[9px] text-white font-bold leading-tight line-clamp-2">{photo.note || 'No note'}</p>
+                        <p className="text-[9px] text-white font-bold leading-tight line-clamp-2">{photo.note || 'No note'}</p>
                       </div>
                       <div className="absolute top-2 right-2 px-2 py-0.5 bg-white/90 dark:bg-stone-900/90 rounded-full text-[8px] font-black text-stone-600 dark:text-stone-300 shadow-sm uppercase">
-                         {new Date(photo.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {new Date(photo.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </div>
                     </div>
                   ))}
@@ -244,55 +484,74 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
           )}
 
           {activeTab === 'Lifecycle' && (
-             <div className="space-y-8">
-                <div className="flex items-center gap-3 px-2">
-                  <span className="text-xl">🪴</span>
-                  <h3 className="text-lg font-black text-stone-800 dark:text-stone-100">Growth Stages</h3>
-                </div>
-                <div className="space-y-10 relative pl-10">
-                  <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-stone-100 dark:bg-stone-800"></div>
-                  {species.stages.map((st, i) => {
-                    const isPassed = parseInt(st.days.split('-')[0]) <= dayCount;
-                    return (
-                      <div key={i} className="relative">
-                        <div className={`absolute -left-[35px] w-7 h-7 rounded-full border-4 border-white dark:border-[#1e1e1c] shadow-md flex items-center justify-center z-10 transition-colors ${isPassed ? 'bg-[#559a73] dark:bg-[#437a5b]' : 'bg-stone-200 dark:bg-stone-800'}`}>
-                           <span className={`text-xs ${!isPassed && 'opacity-30'}`}>{st.emoji}</span>
-                        </div>
-                        <div className={`space-y-0.5 ${!isPassed && 'opacity-30'}`}>
-                          <h4 className="text-sm font-bold text-stone-800 dark:text-stone-100">{st.stage} <span className="text-[10px] text-stone-400 dark:text-stone-500 font-bold ml-2">Days {st.days}</span></h4>
-                          <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">{st.instruction}</p>
-                        </div>
+            <div className="space-y-8">
+              <div className="flex items-center gap-3 px-2">
+                <span className="text-xl">🪴</span>
+                <h3 className="text-lg font-black text-stone-800 dark:text-stone-100">Growth Stages</h3>
+              </div>
+              <div className="space-y-10 relative pl-10">
+                <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-stone-100 dark:bg-stone-800" />
+                {species.stages.map((stage, index) => {
+                  const isPassed = parseInt(stage.days.split('-')[0], 10) <= dayCount;
+                  return (
+                    <div key={stage.stage + index} className="relative">
+                      <div
+                        className={`absolute -left-[35px] w-7 h-7 rounded-full border-4 border-white dark:border-[#1e1e1c] shadow-md flex items-center justify-center z-10 transition-colors ${
+                          isPassed ? 'bg-[#559a73] dark:bg-[#437a5b]' : 'bg-stone-200 dark:bg-stone-800'
+                        }`}
+                      >
+                        <span className={`text-xs ${!isPassed ? 'opacity-30' : ''}`}>{stage.emoji}</span>
                       </div>
-                    );
-                  })}
-                </div>
-             </div>
+                      <div className={`space-y-0.5 ${!isPassed ? 'opacity-30' : ''}`}>
+                        <h4 className="text-sm font-bold text-stone-800 dark:text-stone-100">
+                          {stage.stage}
+                          <span className="text-[10px] text-stone-400 dark:text-stone-500 font-bold ml-2">Days {stage.days}</span>
+                        </h4>
+                        <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">{stage.instruction}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {activeTab === 'Care Log' && (
-             <div className="space-y-6">
-               <h3 className="text-lg font-black text-stone-800 dark:text-stone-100 px-2">Care History</h3>
-               {plant.careLogs.length === 0 ? (
-                 <p className="text-center text-stone-400 dark:text-stone-500 py-10 text-xs font-bold uppercase tracking-widest">No activities logged yet</p>
-               ) : (
-                 <div className="space-y-3">
-                   {plant.careLogs.map(log => (
-                     <div key={log.id} className="flex items-center gap-4 p-4 bg-stone-50 dark:bg-stone-900 rounded-2xl border border-stone-100/50 dark:border-stone-800/50 transition-colors">
-                        <div className={`p-2 rounded-xl bg-white dark:bg-[#1e1e1c] shadow-sm ${log.type === 'Water' ? 'text-blue-500' : 'text-emerald-500'}`}>
-                          {log.type === 'Water' && <Droplets size={18} />}
-                          {log.type === 'Feed' && <Leaf size={18} />}
-                          {log.type === 'Prune' && <Scissors size={18} />}
-                          {log.type === 'Photo' && <Camera size={18} />}
-                        </div>
-                        <div className="flex-1">
-                           <p className="text-sm font-black text-stone-800 dark:text-stone-100">{log.type}</p>
-                           <p className="text-[10px] text-stone-400 dark:text-stone-500 font-bold uppercase">{new Date(log.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}, {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-                     </div>
-                   ))}
-                 </div>
-               )}
-             </div>
+            <div className="space-y-6">
+              <h3 className="text-lg font-black text-stone-800 dark:text-stone-100 px-2">Care History</h3>
+              {plant.careLogs.length === 0 ? (
+                <p className="text-center text-stone-400 dark:text-stone-500 py-10 text-xs font-bold uppercase tracking-widest">
+                  No activities logged yet
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {plant.careLogs.map(log => (
+                    <div
+                      key={log.id}
+                      className="flex items-center gap-4 p-4 bg-stone-50 dark:bg-stone-900 rounded-2xl border border-stone-100/50 dark:border-stone-800/50 transition-colors"
+                    >
+                      <div className={`p-2 rounded-xl bg-white dark:bg-[#1e1e1c] shadow-sm ${log.type === 'Water' ? 'text-blue-500' : 'text-emerald-500'}`}>
+                        {log.type === 'Water' && <Droplets size={18} />}
+                        {log.type === 'Feed' && <Leaf size={18} />}
+                        {log.type === 'Prune' && <Scissors size={18} />}
+                        {log.type === 'Photo' && <Camera size={18} />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-black text-stone-800 dark:text-stone-100">{log.type}</p>
+                        <p className="text-[10px] text-stone-400 dark:text-stone-500 font-bold uppercase">
+                          {new Date(log.timestamp).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                          , {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {activeTab === 'Reminders' && (
@@ -300,9 +559,14 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
               <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">⏰</span>
-                  <h3 className="text-lg font-black text-stone-800 dark:text-stone-100">Reminders</h3>
+                  <div>
+                    <h3 className="text-lg font-black text-stone-800 dark:text-stone-100">Native Reminders</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                      Works even after the app closes
+                    </p>
+                  </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowAddReminder(true)}
                   className="bg-[#559a73] dark:bg-[#437a5b] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
                 >
@@ -316,31 +580,88 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {plant.reminders.map(rem => (
-                    <div key={rem.id} className={`flex items-center justify-between p-4 bg-stone-50 dark:bg-stone-900 rounded-2xl border border-stone-100/50 dark:border-stone-800/50 group transition-colors ${!rem.completed && rem.dateTime <= Date.now() ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : ''}`}>
-                      <div className="flex items-center gap-4 flex-1">
-                         <button 
-                            onClick={() => toggleReminder(rem.id)}
-                            className={`p-2 rounded-xl bg-white dark:bg-[#1e1e1c] shadow-sm transition-colors ${rem.completed ? 'text-emerald-500' : 'text-stone-300 dark:text-stone-700'}`}
-                          >
-                           {rem.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-                         </button>
-                         <div className={rem.completed ? 'opacity-40 line-through' : ''}>
-                           <p className={`text-sm font-black ${!rem.completed && rem.dateTime <= Date.now() ? 'text-red-600 dark:text-red-400' : 'text-stone-800 dark:text-stone-100'}`}>{rem.title}</p>
-                           <p className="text-[10px] text-stone-400 dark:text-stone-500 font-bold uppercase">
-                             <Clock size={10} className="inline mr-1" /> {formatTime24(rem.dateTime)}
-                             {!rem.completed && rem.dateTime <= Date.now() && <span className="ml-2 text-red-500">OVERDUE</span>}
-                           </p>
-                         </div>
-                      </div>
-                      <button 
-                        onClick={() => deleteReminder(rem.id)}
-                        className="p-2 text-stone-300 dark:text-stone-700 hover:text-red-400 transition-colors"
+                  {plant.reminders.map(reminder => {
+                    const normalizedReminder = normalizeReminder(reminder);
+                    const repeating = isRepeatingReminder(normalizedReminder);
+                    const active = isReminderActive(normalizedReminder);
+                    const overdue = isReminderOverdue(normalizedReminder);
+
+                    return (
+                      <div
+                        key={normalizedReminder.id}
+                        className={`p-4 rounded-2xl border transition-colors ${
+                          overdue
+                            ? 'border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900/30'
+                            : active
+                              ? 'border-emerald-100 bg-stone-50 dark:bg-stone-900 dark:border-emerald-900/20'
+                              : 'border-stone-100 bg-stone-50 dark:bg-stone-900 dark:border-stone-800/50'
+                        }`}
                       >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-start gap-4">
+                          <button
+                            onClick={() => void toggleReminder(normalizedReminder)}
+                            className={`p-2 rounded-xl bg-white dark:bg-[#1e1e1c] shadow-sm transition-colors ${
+                              repeating
+                                ? active
+                                  ? 'text-emerald-500'
+                                  : 'text-amber-500'
+                                : normalizedReminder.completed
+                                  ? 'text-emerald-500'
+                                  : 'text-stone-300 dark:text-stone-700'
+                            }`}
+                          >
+                            {repeating ? active ? <BellRing size={18} /> : <BellOff size={18} /> : normalizedReminder.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                          </button>
+
+                          <div className={`flex-1 space-y-2 ${!active && !overdue ? 'opacity-60' : ''}`}>
+                            <div className="flex flex-wrap gap-2">
+                              <span className="px-2.5 py-1 rounded-full bg-white dark:bg-[#1e1e1c] text-[9px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400">
+                                {normalizedReminder.type}
+                              </span>
+                              <span className="px-2.5 py-1 rounded-full bg-[#559a73]/10 text-[9px] font-black uppercase tracking-widest text-[#559a73] dark:bg-[#559a73]/20 dark:text-[#7ab895]">
+                                {formatReminderModeChip(normalizedReminder)}
+                              </span>
+                              {overdue && (
+                                <span className="px-2.5 py-1 rounded-full bg-red-100 text-[9px] font-black uppercase tracking-widest text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                                  Overdue
+                                </span>
+                              )}
+                              {!overdue && !active && (
+                                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-[9px] font-black uppercase tracking-widest text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                                  {repeating ? 'Paused' : 'Completed'}
+                                </span>
+                              )}
+                            </div>
+
+                            <div>
+                              <p className={`text-sm font-black ${overdue ? 'text-red-600 dark:text-red-400' : 'text-stone-800 dark:text-stone-100'}`}>
+                                {normalizedReminder.title}
+                              </p>
+                              <p className="text-[10px] text-stone-400 dark:text-stone-500 font-bold uppercase">
+                                <Clock size={10} className="inline mr-1" /> {formatReminderScheduleLabel(normalizedReminder)}
+                              </p>
+                              <p className="text-[11px] text-stone-500 dark:text-stone-400 font-medium pt-1">
+                                {repeating
+                                  ? active
+                                    ? 'System reminder is active and will keep repeating until you pause it.'
+                                    : 'This repeating reminder is paused.'
+                                  : normalizedReminder.completed
+                                    ? 'This one-time reminder was marked complete.'
+                                    : 'This one-time reminder will fire once at the scheduled time.'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => void deleteReminder(normalizedReminder.id)}
+                            className="p-2 text-stone-300 dark:text-stone-700 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -348,7 +669,6 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
         </div>
       </div>
 
-      {/* Toast */}
       {toast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-stone-800 dark:bg-stone-900 text-white px-6 py-4 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom duration-300 z-50 min-w-[200px]">
           <CheckCircle2 size={16} className="text-emerald-400" />
@@ -356,117 +676,217 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
         </div>
       )}
 
-      {/* Add Photo Modal */}
       {showAddPhoto && (
         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#1e1e1c] w-full max-w-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 transition-colors overflow-y-auto max-h-[90vh]">
-             <div className="flex justify-between items-center mb-6">
-               <h2 className="text-xl font-black text-stone-800 dark:text-stone-100">Add Progress Photo</h2>
-               <button onClick={() => {setShowAddPhoto(false); setTempPhoto(null);}} className="text-stone-400 dark:text-stone-500"><X size={20} /></button>
-             </div>
-             
-             <div className="space-y-5">
-                <div className="flex flex-col items-center gap-4">
-                   {tempPhoto ? (
-                      <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-lg">
-                        <img src={tempPhoto} className="w-full h-full object-cover" alt="Preview" />
-                        <button onClick={() => setTempPhoto(null)} className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full"><X size={16} /></button>
-                      </div>
-                   ) : (
-                      <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full aspect-square bg-stone-50 dark:bg-stone-900 rounded-2xl border-2 border-dashed border-stone-100 dark:border-stone-800 flex flex-col items-center justify-center gap-3 text-stone-400 hover:text-[#559a73] hover:border-[#559a73] transition-all"
-                      >
-                        <Upload size={40} />
-                        <span className="text-sm font-bold">Upload Photo</span>
-                      </button>
-                   )}
-                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                </div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-stone-800 dark:text-stone-100">Add Progress Photo</h2>
+              <button
+                onClick={() => {
+                  setShowAddPhoto(false);
+                  setTempPhoto(null);
+                }}
+                className="text-stone-400 dark:text-stone-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">Remarks / Note</label>
-                  <div className="relative">
-                    <MessageSquare className="absolute left-4 top-4 text-stone-300" size={16} />
-                    <textarea 
-                      placeholder="e.g., First true leaves emerged today!"
-                      className="w-full bg-stone-50 dark:bg-stone-900 p-4 pl-12 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 dark:placeholder-stone-600 transition-colors min-h-[100px]"
-                      value={newPhotoNote}
-                      onChange={e => setNewPhotoNote(e.target.value)}
-                    />
+            <div className="space-y-5">
+              <div className="flex flex-col items-center gap-4">
+                {tempPhoto ? (
+                  <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-lg">
+                    <img src={tempPhoto} className="w-full h-full object-cover" alt="Preview" />
+                    <button onClick={() => setTempPhoto(null)} className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full">
+                      <X size={16} />
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full aspect-square bg-stone-50 dark:bg-stone-900 rounded-2xl border-2 border-dashed border-stone-100 dark:border-stone-800 flex flex-col items-center justify-center gap-3 text-stone-400 hover:text-[#559a73] hover:border-[#559a73] transition-all"
+                  >
+                    <Upload size={40} />
+                    <span className="text-sm font-bold">Upload Photo</span>
+                  </button>
+                )}
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+              </div>
 
-                <button 
-                  disabled={!tempPhoto}
-                  onClick={savePhoto}
-                  className="w-full bg-[#559a73] dark:bg-[#437a5b] disabled:opacity-50 text-white py-4 rounded-2xl font-bold shadow-lg"
-                >
-                  Save Photo
-                </button>
-             </div>
+              <div>
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                  Remarks / Note
+                </label>
+                <div className="relative">
+                  <MessageSquare className="absolute left-4 top-4 text-stone-300" size={16} />
+                  <textarea
+                    placeholder="e.g., First true leaves emerged today!"
+                    className="w-full bg-stone-50 dark:bg-stone-900 p-4 pl-12 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 dark:placeholder-stone-600 transition-colors min-h-[100px]"
+                    value={newPhotoNote}
+                    onChange={event => setNewPhotoNote(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button
+                disabled={!tempPhoto}
+                onClick={savePhoto}
+                className="w-full bg-[#559a73] dark:bg-[#437a5b] disabled:opacity-50 text-white py-4 rounded-2xl font-bold shadow-lg"
+              >
+                Save Photo
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Add Reminder Modal */}
       {showAddReminder && (
         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#1e1e1c] w-full max-w-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 transition-colors">
-             <div className="flex justify-between items-center mb-6">
-               <h2 className="text-xl font-black text-stone-800 dark:text-stone-100">New Reminder</h2>
-               <button onClick={() => setShowAddReminder(false)} className="text-stone-400 dark:text-stone-500"><X size={20} /></button>
-             </div>
-             <div className="space-y-5">
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">Task Name</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g., Water Tomato"
-                    className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 dark:placeholder-stone-600 transition-colors"
-                    value={newReminder.title}
-                    onChange={e => setNewReminder(prev => ({...prev, title: e.target.value}))}
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">Time (24h format)</label>
-                  <input 
-                    type="time" 
-                    className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm font-bold dark:text-stone-100 transition-colors"
-                    value={newReminder.time}
-                    onChange={e => setNewReminder(prev => ({...prev, time: e.target.value}))}
-                  />
-                </div>
-                <button 
-                  onClick={() => {
-                    const [hours, minutes] = newReminder.time.split(':').map(Number);
-                    const now = new Date();
-                    now.setHours(hours, minutes, 0, 0);
-                    
-                    // If time is already passed for today, set for tomorrow
-                    if (now.getTime() < Date.now()) {
-                      now.setDate(now.getDate() + 1);
-                    }
-                    
-                    const rem: Reminder = {
-                      id: Date.now().toString(),
-                      type: 'Water',
-                      title: newReminder.title || 'Water',
-                      dateTime: now.getTime(),
-                      completed: false,
-                      notified: false
-                    };
-                    const updated = {...plant, reminders: [...plant.reminders, rem]};
-                    storageService.updatePlant(updated);
-                    onUpdate();
-                    setShowAddReminder(false);
-                    showToast('Reminder added!');
-                  }}
-                  className="w-full bg-[#559a73] dark:bg-[#437a5b] text-white py-4 rounded-2xl font-bold shadow-lg"
+          <div className="bg-white dark:bg-[#1e1e1c] w-full max-w-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 transition-colors overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-stone-800 dark:text-stone-100">New Native Reminder</h2>
+              <button onClick={closeReminderModal} className="text-stone-400 dark:text-stone-500">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                  Task Type
+                </label>
+                <select
+                  className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 transition-colors"
+                  value={newReminder.type}
+                  onChange={event =>
+                    setNewReminder(currentReminder => ({
+                      ...currentReminder,
+                      type: event.target.value as Reminder['type'],
+                    }))
+                  }
                 >
-                  Set Reminder
-                </button>
-             </div>
+                  <option value="Water">Water</option>
+                  <option value="Feed">Feed</option>
+                  <option value="Harvest">Harvest</option>
+                  <option value="Custom">Custom</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                  Task Name
+                </label>
+                <input
+                  type="text"
+                  placeholder={`e.g., ${newReminder.type} ${plant.customName}`}
+                  className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 dark:placeholder-stone-600 transition-colors"
+                  value={newReminder.title}
+                  onChange={event =>
+                    setNewReminder(currentReminder => ({
+                      ...currentReminder,
+                      title: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                  Repeat Pattern
+                </label>
+                <select
+                  className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 transition-colors"
+                  value={newReminder.scheduleType}
+                  onChange={event =>
+                    setNewReminder(currentReminder => ({
+                      ...currentReminder,
+                      scheduleType: event.target.value as ReminderScheduleType,
+                    }))
+                  }
+                >
+                  <option value="once">One time</option>
+                  <option value="daily">Every day</option>
+                  <option value="interval">Every few hours</option>
+                </select>
+              </div>
+
+              {newReminder.scheduleType === 'once' && (
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 transition-colors"
+                    value={newReminder.date}
+                    onChange={event =>
+                      setNewReminder(currentReminder => ({
+                        ...currentReminder,
+                        date: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              )}
+
+              {newReminder.scheduleType === 'interval' && (
+                <div>
+                  <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                    Repeat Every
+                  </label>
+                  <select
+                    className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 transition-colors"
+                    value={newReminder.intervalHours}
+                    onChange={event =>
+                      setNewReminder(currentReminder => ({
+                        ...currentReminder,
+                        intervalHours: Number(event.target.value) as ReminderIntervalHours,
+                      }))
+                    }
+                  >
+                    {REMINDER_INTERVAL_OPTIONS.map(intervalHours => (
+                      <option key={intervalHours} value={intervalHours}>
+                        Every {intervalHours} hours
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                  Time
+                </label>
+                <input
+                  type="time"
+                  className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm font-bold dark:text-stone-100 transition-colors"
+                  value={newReminder.time}
+                  onChange={event =>
+                    setNewReminder(currentReminder => ({
+                      ...currentReminder,
+                      time: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="p-4 rounded-2xl border border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900">
+                <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400 mb-2">
+                  Native Android Reminder
+                </p>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
+                  This reminder is saved to the Android system notification scheduler, so it can still ring after FloraLife is closed. You can change the sound from Android notification settings.
+                </p>
+              </div>
+
+              <button
+                disabled={isSavingReminder}
+                onClick={() => void handleSaveReminder()}
+                className="w-full bg-[#559a73] dark:bg-[#437a5b] disabled:opacity-50 text-white py-4 rounded-2xl font-bold shadow-lg"
+              >
+                {isSavingReminder ? 'Saving...' : 'Save Native Reminder'}
+              </button>
+            </div>
           </div>
         </div>
       )}

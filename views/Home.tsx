@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Plant, AppTab } from '../types';
 import { Plus, Scan, ChevronRight, Leaf, BookOpen, Calendar, CheckCircle2, Droplets, Moon, Sun, X, Info, FlaskConical } from 'lucide-react';
 import { INITIAL_SPECIES } from '../constants';
+import { countActiveReminders } from '../services/nativeReminderService';
 
 const FloraLifeLogo = ({ className = "w-10 h-10" }: { className?: string }) => (
   <div className={`${className} flex items-center justify-center shrink-0`}>
@@ -27,7 +28,7 @@ interface HomeViewProps {
 const HomeView: React.FC<HomeViewProps> = ({ plants, onAddPlant, onScan, onNavigateGuide, isDarkMode, toggleDarkMode }) => {
   const activeCount = plants.filter(p => !p.harvested).length;
   const harvestedCount = plants.filter(p => p.harvested).length;
-  const remindersCount = plants.reduce((acc, p) => acc + p.reminders.filter(r => !r.completed).length, 0);
+  const remindersCount = plants.reduce((acc, plant) => acc + countActiveReminders(plant.reminders), 0);
 
   const [activeFilter, setActiveFilter] = useState<'All' | 'Home' | 'Agriculture'>('All');
   const [showFertilizerModal, setShowFertilizerModal] = useState(false);

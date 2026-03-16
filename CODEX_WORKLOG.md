@@ -74,3 +74,47 @@
   - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
+- Follow-up navigation fix:
+  - Replaced the custom document `backbutton` listener with the official `@capacitor/app` Android back button listener.
+  - Enabled Capacitor App plugin back-button control through `capacitor.config.ts`.
+  - Removed the temporary native `onBackPressed()` override from `MainActivity`.
+- Reminder system refactor:
+  - Removed the old web-only polling reminder flow from `App.tsx`.
+  - Deleted `services/notificationService.ts` because reminders now use native Android local notifications instead of browser notifications.
+  - Added a reusable `services/nativeReminderService.ts` module to:
+    - normalize reminder data
+    - request Android notification permissions
+    - schedule native reminders
+    - cancel native reminders
+    - resync reminders after app resume
+    - support repeating reminder helpers for daily and interval schedules
+- Native reminder feature upgrades:
+  - Added support for one-time reminders with date + time.
+  - Added support for daily reminders at a fixed time.
+  - Added support for repeating reminders every 4, 6, 8, or 12 hours.
+  - Repeating reminders can now be paused/resumed instead of forcing the user to recreate them.
+  - One-time reminders can be marked complete.
+  - Plant deletion now also clears any native reminder schedules for that plant.
+- Storage/data updates:
+  - Extended the reminder model with schedule type, interval hours, and enabled state.
+  - Added reminder normalization inside `storageService` so older local data migrates automatically.
+- Android native setup:
+  - Installed `@capacitor/app@^8.0.0`.
+  - Installed `@capacitor/local-notifications@^8.0.0`.
+  - Added `android.permission.SCHEDULE_EXACT_ALARM` to `AndroidManifest.xml`.
+  - Synced Android plugins so native App and Local Notifications are registered in the project.
+- UI updates:
+  - Rebuilt the Plant Detail reminders tab around native reminders.
+  - Added clearer reminder mode/status display for:
+    - one-time
+    - daily
+    - every few hours
+    - paused
+    - completed
+    - overdue
+  - Added explanatory text that reminder sound can be changed from Android notification settings.
+- Verification:
+  - TypeScript check passed with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.

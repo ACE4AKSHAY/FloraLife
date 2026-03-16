@@ -56,9 +56,13 @@ export interface Reminder {
   title: string;
   dateTime: number;
   completed: boolean;
-  notified?: boolean;
-  lastAlertTimestamp?: number; // For repeating alerts
+  scheduleType?: ReminderScheduleType;
+  intervalHours?: ReminderIntervalHours;
+  enabled?: boolean;
 }
+
+export type ReminderScheduleType = 'once' | 'daily' | 'interval';
+export type ReminderIntervalHours = 4 | 6 | 8 | 12;
 
 export interface ScanResult {
   status: 'Healthy' | 'Diseased' | 'Needs Review';
