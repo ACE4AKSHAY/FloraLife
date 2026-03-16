@@ -179,7 +179,7 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
           </button>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-stone-800 dark:text-stone-100">AI Plant Scanner</h1>
-            <p className="text-xs text-stone-400">Detailed health report</p>
+            <p className="text-xs text-stone-400">Plant health report</p>
             <div className="flex flex-wrap gap-2 mt-3">
               <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusClasses.chip}`}>
                 {getStatusTitle(result.status)}
@@ -216,7 +216,7 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
                 <div className="text-4xl font-black text-stone-800 dark:text-stone-100">
                   {result.confidence}%
                 </div>
-                <p className="text-xs text-stone-400 mt-1">Offline classifier confidence</p>
+                <p className="text-xs text-stone-400 mt-1">Match confidence</p>
               </div>
               {result.severity && (
                 <div className="text-right">
@@ -298,7 +298,7 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
             AI Plant Scanner
           </h1>
           <p className="text-sm text-stone-400">
-            Analyze plant health and get care guidance
+            Scan one clear leaf photo
           </p>
         </div>
       </header>
@@ -335,12 +335,12 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
 
           <div className="text-center space-y-2">
             <p className="text-sm font-black text-stone-800 dark:text-stone-100">
-              {scanMode === 'offline' ? 'Offline disease classifier' : 'Online Gemini diagnosis'}
+              {scanMode === 'offline' ? 'Offline scan' : 'Online scan'}
             </p>
             <p className="text-xs text-stone-400 dark:text-stone-500">
               {scanMode === 'offline'
-                ? 'Uses hardcoded care content for each TensorFlow Lite class.'
-                : 'Uses Gemini when the device is online.'}
+                ? 'Works without internet.'
+                : 'Uses Gemini when internet is available.'}
             </p>
           </div>
 
@@ -369,6 +369,7 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
   );
 };
 
+// Replace this inline icon with the final FloraLife logo when the brand asset is ready.
 const LeafIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
     <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a13 13 0 0 1-13 13L11 20z" />

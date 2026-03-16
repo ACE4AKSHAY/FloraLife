@@ -74,6 +74,22 @@
   - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
+- Cleanup and documentation pass:
+  - Created an empty safety checkpoint commit before cleanup work so the pre-cleanup state is easy to restore.
+  - Removed leftover AI Studio / CDN-specific HTML from `index.html` that Vite no longer needs.
+  - Silenced service worker registration logging in the UI entry file.
+  - Shortened scan screen helper text so the app feels less technical for end users.
+  - Reworded offline scan output to remove phrases like "offline model" and other model-centric wording from user-facing diagnosis text.
+  - Reworded browser preview and offline error text in `tfliteService.ts` so fallback output is more user-friendly.
+  - Added branding comments showing where final icon/logo assets should be replaced later.
+  - Replaced the old placeholder `README.md` with a project-specific GitHub-ready overview.
+  - Added `FLORALIFE_PROJECT_DOCUMENTATION.md` as a full project write-up and usage guide.
+  - Generated `FLORALIFE_PROJECT_DOCUMENTATION.docx` from the FloraLife documentation markdown so a Word document is available for submission/reference.
+- Verification:
+  - TypeScript check passed again with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed again with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed again with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android debug build passed again with `.\gradlew.bat :app:assembleDebug`.
 - Reminder follow-up and UI refinement:
   - Reworked native reminder scheduling so one-time reminders keep re-alerting every 5 minutes until marked done.
   - Added future rescheduling for interval reminders using the selected hour count instead of fixed 4/6/8/12 hour presets.

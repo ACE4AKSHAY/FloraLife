@@ -4,6 +4,7 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
+    <!-- Replace the launcher icon resources in the mipmap folders when the final FloraLife branding is ready. -->
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

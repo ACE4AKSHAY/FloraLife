@@ -13,14 +13,14 @@ const healthy = (
   diseaseName,
   status: "Healthy",
   severity: "Low",
-  description: `The offline model matched this image to a healthy ${cropName.toLowerCase()} leaf pattern with no major disease markers.`,
+  description: `This leaf looks healthy for ${cropName.toLowerCase()} with no strong disease pattern visible.`,
   recommendations: [
     "Keep watering and feeding consistent for the current season.",
     "Continue checking leaves weekly so any new spots are caught early.",
     "Use good airflow and clean tools to keep the plant healthy.",
   ],
   growthStage: "Leaf inspection",
-  growthStageDescription: `This offline check is based on foliage appearance for ${cropName.toLowerCase()}.`,
+  growthStageDescription: `Assessment based on the visible leaf condition of ${cropName.toLowerCase()}.`,
   symptoms: [
     "Leaf color looks even and balanced.",
     "No strong mildew, rot, rust, or blight patches are obvious.",
@@ -29,7 +29,7 @@ const healthy = (
   causes: [
     "Good airflow around the plant.",
     "Balanced moisture and nutrition.",
-    "No strong disease signature matched by the model.",
+    "No strong disease pattern is visible.",
   ],
   prevention: [
     "Avoid overwatering and wet leaves late in the day.",
@@ -63,7 +63,7 @@ const disease = (
   description,
   recommendations,
   growthStage: "Leaf diagnostic stage",
-  growthStageDescription: `This offline result is driven by visible leaf symptoms on ${cropName.toLowerCase()}.`,
+  growthStageDescription: `Assessment based on visible leaf symptoms on ${cropName.toLowerCase()}.`,
   symptoms,
   causes,
   prevention,
@@ -89,13 +89,13 @@ const reviewNeeded = (
   recommendations: [
     "Retake the photo with one leaf filling the frame.",
     "Use bright light and avoid blur or heavy shadows.",
-    "If possible, compare with an online scan for confirmation.",
+    "Take one more close leaf photo for confirmation if needed.",
   ],
   growthStage: "Unknown",
-  growthStageDescription: "The offline model could not confidently map the image to a specific plant-disease leaf pattern.",
+  growthStageDescription: "The image did not clearly match a supported plant leaf pattern.",
   symptoms: [
     "The image may include too much background.",
-    "The sample may not match one of the model's trained leaf classes.",
+    "The sample may not match one of the supported leaf patterns.",
     "Blur, shadow, or multiple leaves may reduce accuracy.",
   ],
   causes: [
@@ -122,7 +122,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Apple",
     "Apple Scab",
     "High",
-    "The offline model sees the dark, scab-like spotting pattern commonly linked with apple scab.",
+    "The dark, scab-like spotting pattern is commonly linked with apple scab.",
     [
       "Olive to dark circular spots on leaves.",
       "Velvety or crusted lesions on the leaf surface.",
@@ -149,7 +149,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Apple",
     "Apple Black Rot",
     "High",
-    "The offline model matched the brown-to-black dead tissue pattern often seen in apple black rot infections.",
+    "The brown-to-black dead tissue pattern is often seen in apple black rot infections.",
     [
       "Brown lesions that darken toward black.",
       "Concentric rings or expanding dead areas.",
@@ -176,7 +176,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Apple",
     "Cedar Apple Rust",
     "Moderate",
-    "The orange rust-like spotting pattern in the image matches cedar apple rust symptoms in the offline model.",
+    "The orange rust-like spotting pattern matches cedar apple rust symptoms.",
     [
       "Bright yellow or orange circular spots.",
       "Rust-colored centers becoming more obvious over time.",
@@ -213,7 +213,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Cherry",
     "Cherry Powdery Mildew",
     "Moderate",
-    "The offline model detected the white powdery coating pattern associated with cherry powdery mildew.",
+    "The white powdery coating pattern fits cherry powdery mildew.",
     [
       "White powder-like film on the leaf surface.",
       "Soft distortion or curling of newer leaves.",
@@ -245,7 +245,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Corn",
     "Corn Gray Leaf Spot",
     "High",
-    "The offline model matched the long gray-tan lesion pattern seen in gray leaf spot on maize leaves.",
+    "The long gray-tan lesion pattern matches gray leaf spot on maize leaves.",
     [
       "Long rectangular gray lesions between veins.",
       "Tan to gray dead strips running along the leaf blade.",
@@ -272,7 +272,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Corn",
     "Corn Common Rust",
     "Moderate",
-    "The raised rust pustules and scattered orange-brown lesions match corn common rust in the offline model.",
+    "The raised rust pustules and scattered orange-brown lesions match corn common rust.",
     [
       "Small orange-brown raised pustules.",
       "Rust dots scattered across the leaf blade.",
@@ -331,7 +331,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Grape",
     "Grape Black Rot",
     "High",
-    "The leaf shows dark circular lesions consistent with grape black rot in the offline model.",
+    "The leaf shows dark circular lesions consistent with grape black rot.",
     [
       "Brown circular spots with darker edges.",
       "Tiny black fruiting dots inside lesions.",
@@ -358,7 +358,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Grape",
     "Grape Esca (Black Measles)",
     "High",
-    "The offline model picked up the scorched and mottled leaf pattern often linked with esca or black measles.",
+    "The scorched and mottled leaf pattern is often linked with esca or black measles.",
     [
       "Irregular brown scorched tissue between veins.",
       "Tiger-stripe style yellow and dark patches.",
@@ -385,7 +385,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Grape",
     "Grape Leaf Blight",
     "Moderate",
-    "The spot pattern and tissue browning align with grape leaf blight in the offline model.",
+    "The spot pattern and tissue browning align with grape leaf blight.",
     [
       "Dark angular or irregular spots.",
       "Leaf tissue browning around lesion clusters.",
@@ -417,7 +417,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Orange",
     "Citrus Greening (Huanglongbing)",
     "High",
-    "The uneven mottling pattern is a strong match for citrus greening in the offline model.",
+    "The uneven mottling pattern is a strong match for citrus greening.",
     [
       "Blotchy, uneven yellow mottling.",
       "Green and yellow patches that are not symmetrical.",
@@ -444,7 +444,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Peach",
     "Peach Bacterial Spot",
     "Moderate",
-    "The offline model sees spotting and shot-hole style damage that fits peach bacterial spot.",
+    "The spotting and shot-hole style damage fit peach bacterial spot.",
     [
       "Small dark spots with yellow halos.",
       "Lesions that may tear out or dry through the leaf.",
@@ -476,7 +476,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Pepper Bell",
     "Pepper Bell Bacterial Spot",
     "High",
-    "The angular dark spotting in the image closely matches pepper bell bacterial spot in the offline model.",
+    "The angular dark spotting closely matches pepper bell bacterial spot.",
     [
       "Small dark angular leaf lesions.",
       "Water-soaked looking spots that dry darker.",
@@ -508,7 +508,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Potato",
     "Potato Early Blight",
     "High",
-    "The offline model matched the concentric brown target-like lesions seen in potato early blight.",
+    "The concentric brown target-like lesions match potato early blight.",
     [
       "Brown lesions with ring-like zoning.",
       "Yellowing around older lesions.",
@@ -535,7 +535,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Potato",
     "Potato Late Blight",
     "High",
-    "The dark water-soaked collapse pattern is consistent with potato late blight in the offline model.",
+    "The dark water-soaked collapse pattern is consistent with potato late blight.",
     [
       "Dark greasy or water-soaked lesions.",
       "Rapid browning and collapse of leaf tissue.",
@@ -577,7 +577,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Squash",
     "Squash Powdery Mildew",
     "Moderate",
-    "The white powdery film on the foliage is a strong squash powdery mildew pattern in the offline model.",
+    "The white powdery film on the foliage is a strong squash powdery mildew pattern.",
     [
       "White powder patches on leaf surfaces.",
       "Dusty coating spreading across broad leaves.",
@@ -604,7 +604,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Strawberry",
     "Strawberry Leaf Scorch",
     "Moderate",
-    "The offline model matched the scorched margin and spotting pattern commonly seen in strawberry leaf scorch.",
+    "The scorched margin and spotting pattern match strawberry leaf scorch.",
     [
       "Purple to dark spots expanding across the leaf.",
       "Edges looking scorched or burned.",
@@ -636,7 +636,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Tomato",
     "Tomato Bacterial Spot",
     "High",
-    "The small dark lesions and yellowing pattern align with tomato bacterial spot in the offline model.",
+    "The small dark lesions and yellowing pattern align with tomato bacterial spot.",
     [
       "Small dark spots scattered over the leaf.",
       "Yellowing around dense spot clusters.",
@@ -690,7 +690,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Tomato",
     "Tomato Late Blight",
     "High",
-    "The large dark blighted tissue and collapse pattern are typical of tomato late blight in the offline model.",
+    "The large dark blighted tissue and collapse pattern are typical of tomato late blight.",
     [
       "Dark rapidly expanding blotches.",
       "Wet-looking dead tissue on the leaf.",
@@ -717,7 +717,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Tomato",
     "Tomato Leaf Mold",
     "Moderate",
-    "The offline model matched the yellow patching and mold-prone underside pattern seen in tomato leaf mold.",
+    "The yellow patching and mold-prone underside pattern match tomato leaf mold.",
     [
       "Yellow patches on upper leaf surfaces.",
       "Leaf areas that may show mold beneath.",
@@ -744,7 +744,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Tomato",
     "Tomato Septoria Leaf Spot",
     "High",
-    "The many small round lesions strongly fit tomato septoria leaf spot in the offline model.",
+    "The many small round lesions strongly fit tomato septoria leaf spot.",
     [
       "Numerous tiny round brown or gray spots.",
       "Dark borders around many small lesions.",
@@ -771,7 +771,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Tomato",
     "Tomato Two-Spotted Spider Mite Damage",
     "Moderate",
-    "The stippled, bronzed foliage pattern matches spider mite feeding damage in the offline model.",
+    "The stippled, bronzed foliage pattern matches spider mite feeding damage.",
     [
       "Fine yellow speckling or stippling on the leaf.",
       "Bronzed or dusty-looking leaf surface.",
@@ -798,7 +798,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Tomato",
     "Tomato Target Spot",
     "Moderate",
-    "The offline model sees target-like lesions that fit tomato target spot symptoms.",
+    "The target-like lesions fit tomato target spot symptoms.",
     [
       "Brown circular lesions with zoned rings.",
       "Spots larger than septoria and more defined than general blight.",
@@ -852,7 +852,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
     "Tomato",
     "Tomato Mosaic Virus",
     "High",
-    "The uneven green-yellow mosaic pattern matches tomato mosaic virus in the offline model.",
+    "The uneven green-yellow mosaic pattern matches tomato mosaic virus.",
     [
       "Patchy light and dark green mosaic pattern.",
       "Distorted or narrowed leaf shape.",
@@ -882,7 +882,7 @@ export const OFFLINE_DISEASE_PROFILES: Record<string, OfflineDiseaseProfile> = {
   ),
   background: reviewNeeded(
     "Background / Unknown Sample",
-    "The offline model mostly saw background or a non-matching sample instead of a clear trained leaf class.",
+    "The image mostly shows background or a non-matching sample instead of a clear leaf.",
     "Best demo image: one single leaf, centered, sharp, bright, and filling most of the frame.",
   ),
 };
@@ -901,7 +901,7 @@ export function getOfflineDiseaseProfile(label: string): OfflineDiseaseProfile {
     OFFLINE_DISEASE_PROFILES[label] ??
     reviewNeeded(
       label,
-      "The offline model returned a class that does not yet have a custom hardcoded explanation in the app.",
+      "This result does not yet have a custom explanation in FloraLife.",
       "Best demo image: a single leaf photo with strong lighting and clear symptoms.",
     )
   );

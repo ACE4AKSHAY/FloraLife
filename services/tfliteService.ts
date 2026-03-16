@@ -5,17 +5,14 @@ const TFLite = registerPlugin<any>("TFLite");
 
 export async function runOfflineModel(base64: string) {
 
-  // Detect if running in browser (npm run dev)
   if (!(window as any).Capacitor || (window as any).Capacitor.getPlatform() === "web") {
-
-    console.log("Browser mode: using stub ML result");
 
     const demoProfile = getOfflineDiseaseProfile("pepper bell healthy");
 
     return {
       ...demoProfile,
       confidence: 82,
-      description: "Browser testing mode. Real TensorFlow Lite runs only in Android, but the offline result layout is previewed here.",
+      description: "Preview result shown in the browser. Use the Android app for full offline scanning.",
       imageUrl: `data:image/jpeg;base64,${base64}`,
       timestamp: Date.now()
     };
@@ -46,7 +43,7 @@ export async function runOfflineModel(base64: string) {
       ...getOfflineDiseaseProfile("background"),
       diseaseName: "Offline model error",
       confidence: 0,
-      description: "TensorFlow inference failed.",
+      description: "Offline scan could not be completed. Try another clear leaf photo.",
       imageUrl: `data:image/jpeg;base64,${base64}`,
       timestamp: Date.now()
     };
