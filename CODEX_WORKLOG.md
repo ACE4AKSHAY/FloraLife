@@ -74,6 +74,31 @@
   - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
+- Plant flow and scan UX update:
+  - Added a new `Custom` care action in Plant Detail for medicine or any special plant task.
+  - Replaced the duplicate quick `Photo` action with the new custom-care action because photo adding already exists in the Photos tab.
+  - Added a custom care modal with user-entered title and description.
+  - Extended care log storage so custom entries are saved in history with their own title and note.
+  - Updated care history cards so custom notes are visible after saving.
+- Home and My Plants shortcut update:
+  - Added Home counter shortcuts so tapping `Active`, `Reminders`, or `Harvested` opens My Plants with the matching filter.
+  - Added lightweight filters in My Plants for:
+    - all plants
+    - active plants
+    - plants with active reminders
+    - harvested archive
+  - Added reminder-count badges to plant cards so reminder-related plants are easier to spot.
+  - Used harvested plants as a simple archive view instead of creating a separate heavy feature.
+- Scan flow update:
+  - Added a visible `Cancel Scan` button while a scan is running.
+  - Added scan-job guarding so unfinished async results are ignored after cancel or when the screen unmounts.
+  - Added app-level leave confirmation if the user tries to leave the Scan tab while scanning is still in progress.
+  - Kept the scan logic lightweight without trying to force background scanning across tabs.
+- Verification:
+  - TypeScript check passed with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
 - Cleanup and documentation pass:
   - Created an empty safety checkpoint commit before cleanup work so the pre-cleanup state is easy to restore.
   - Removed leftover AI Studio / CDN-specific HTML from `index.html` that Vite no longer needs.

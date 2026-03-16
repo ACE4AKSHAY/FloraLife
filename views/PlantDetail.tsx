@@ -69,6 +69,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
   const [activeTab, setActiveTab] = useState<'Photos' | 'Lifecycle' | 'Care Log' | 'Reminders'>('Photos');
   const [showAddReminder, setShowAddReminder] = useState(false);
   const [showAddPhoto, setShowAddPhoto] = useState(false);
+  const [showAddCustomCare, setShowAddCustomCare] = useState(false);
   const [isSavingReminder, setIsSavingReminder] = useState(false);
   const [newReminder, setNewReminder] = useState<{
     title: string;
@@ -86,6 +87,7 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
     intervalHours: 6,
   });
   const [newPhotoNote, setNewPhotoNote] = useState('');
+  const [newCustomCare, setNewCustomCare] = useState({ title: '', description: '' });
   const [tempPhoto, setTempPhoto] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [clockNow, setClockNow] = useState(Date.now());
@@ -131,6 +133,11 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
     resetReminderDraft();
   };
 
+  const closeCustomCareModal = () => {
+    setShowAddCustomCare(false);
+    setNewCustomCare({ title: '', description: '' });
+  };
+
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this plant?')) {
       return;
@@ -144,9 +151,9 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
     onBack();
   };
 
-  const logCare = (type: 'Water' | 'Feed' | 'Prune' | 'Photo') => {
-    if (type === 'Photo') {
-      setShowAddPhoto(true);
+  const logCare = (type: 'Water' | 'Feed' | 'Prune' | 'Custom') => {
+    if (type === 'Custom') {
+      setShowAddCustomCare(true);
       return;
     }
 
@@ -158,6 +165,35 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
     storageService.updatePlant(updatedPlant);
     onUpdate();
     showToast(`${type} logged!`);
+  };
+
+  const saveCustomCare = () => {
+    const title = newCustomCare.title.trim();
+    const description = newCustomCare.description.trim();
+
+    if (!title) {
+      showToast('Enter a title for this custom care task.');
+      return;
+    }
+
+    const updatedPlant: Plant = {
+      ...plant,
+      careLogs: [
+        {
+          id: `custom-log-${Date.now()}`,
+          type: 'Custom',
+          title,
+          note: description || undefined,
+          timestamp: Date.now(),
+        },
+        ...plant.careLogs,
+      ],
+    };
+
+    storageService.updatePlant(updatedPlant);
+    onUpdate();
+    closeCustomCareModal();
+    showToast('Custom care added.');
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -420,11 +456,11 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
             { icon: Droplets, label: 'Water', type: 'Water', color: 'text-blue-400' },
             { icon: Leaf, label: 'Feed', type: 'Feed', color: 'text-emerald-400' },
             { icon: Scissors, label: 'Prune', type: 'Prune', color: 'text-stone-400' },
-            { icon: Camera, label: 'Photo', type: 'Photo', color: 'text-stone-400' },
+            { icon: MessageSquare, label: 'Custom', type: 'Custom', color: 'text-amber-500' },
           ].map(action => (
             <button
               key={action.label}
-              onClick={() => logCare(action.type as 'Water' | 'Feed' | 'Prune' | 'Photo')}
+              onClick={() => logCare(action.type as 'Water' | 'Feed' | 'Prune' | 'Custom')}
               className="bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 py-4 rounded-2xl flex flex-col items-center gap-2 shadow-sm active:scale-95 transition-all"
             >
               <action.icon size={22} className={action.color} strokeWidth={1.5} />
@@ -543,17 +579,31 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                       key={log.id}
                       className="flex items-center gap-4 p-4 bg-stone-50 dark:bg-stone-900 rounded-2xl border border-stone-100/50 dark:border-stone-800/50 transition-colors"
                     >
-                      <div className={`p-2 rounded-xl bg-white dark:bg-[#1e1e1c] shadow-sm ${log.type === 'Water' ? 'text-blue-500' : 'text-emerald-500'}`}>
+                      <div
+                        className={`p-2 rounded-xl bg-white dark:bg-[#1e1e1c] shadow-sm ${
+                          log.type === 'Water'
+                            ? 'text-blue-500'
+                            : log.type === 'Feed'
+                              ? 'text-emerald-500'
+                              : log.type === 'Custom'
+                                ? 'text-amber-500'
+                                : 'text-stone-500'
+                        }`}
+                      >
                         {log.type === 'Water' && <Droplets size={18} />}
                         {log.type === 'Feed' && <Leaf size={18} />}
                         {log.type === 'Prune' && <Scissors size={18} />}
                         {log.type === 'Photo' && <Camera size={18} />}
+                        {log.type === 'Custom' && <MessageSquare size={18} />}
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-black text-stone-800 dark:text-stone-100">{log.type}</p>
+                        <p className="text-sm font-black text-stone-800 dark:text-stone-100">{log.title || log.type}</p>
                         <p className="text-[10px] text-stone-400 dark:text-stone-500 font-bold uppercase">
                           {formatDateTime(log.timestamp)}
                         </p>
+                        {log.note && (
+                          <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-1">{log.note}</p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -883,6 +933,53 @@ const PlantDetailView: React.FC<PlantDetailViewProps> = ({ plant, species, onBac
                 className="w-full bg-[#559a73] dark:bg-[#437a5b] disabled:opacity-50 text-white py-4 rounded-2xl font-bold shadow-lg"
               >
                 {isSavingReminder ? 'Saving...' : 'Save Reminder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddCustomCare && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1e1e1c] w-full max-w-sm rounded-[40px] p-8 shadow-2xl animate-in zoom-in duration-200 transition-colors overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black text-stone-800 dark:text-stone-100">Custom Care Entry</h2>
+              <button onClick={closeCustomCareModal} className="text-stone-400 dark:text-stone-500">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Neem spray"
+                  className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 dark:placeholder-stone-600 transition-colors"
+                  value={newCustomCare.title}
+                  onChange={event => setNewCustomCare(currentValue => ({ ...currentValue, title: event.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest block mb-2 px-1">
+                  Description
+                </label>
+                <textarea
+                  placeholder="e.g., Applied medicine to affected leaves after sunset."
+                  className="w-full bg-stone-50 dark:bg-stone-900 p-4 rounded-xl border-none focus:ring-2 focus:ring-[#559a73]/20 text-sm dark:text-stone-100 dark:placeholder-stone-600 transition-colors min-h-[120px]"
+                  value={newCustomCare.description}
+                  onChange={event => setNewCustomCare(currentValue => ({ ...currentValue, description: event.target.value }))}
+                />
+              </div>
+
+              <button
+                onClick={saveCustomCare}
+                className="w-full bg-[#559a73] dark:bg-[#437a5b] text-white py-4 rounded-2xl font-bold shadow-lg"
+              >
+                Save Custom Entry
               </button>
             </div>
           </div>

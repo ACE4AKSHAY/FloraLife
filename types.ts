@@ -45,10 +45,13 @@ export interface Plant {
 
 export interface CareLog {
   id: string;
-  type: 'Water' | 'Feed' | 'Prune' | 'Photo';
+  type: 'Water' | 'Feed' | 'Prune' | 'Photo' | 'Custom';
   timestamp: number;
+  title?: string;
   note?: string;
 }
+
+export type PlantListFilter = 'all' | 'active' | 'reminders' | 'harvested';
 
 export interface Reminder {
   id: string;

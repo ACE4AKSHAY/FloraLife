@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plant, AppTab } from '../types';
+import { Plant, PlantListFilter } from '../types';
 import { Plus, Scan, ChevronRight, Leaf, BookOpen, Calendar, CheckCircle2, Droplets, Moon, Sun, X, Info, FlaskConical } from 'lucide-react';
 import { INITIAL_SPECIES } from '../constants';
 import { countActiveReminders } from '../services/nativeReminderService';
@@ -20,12 +20,21 @@ interface HomeViewProps {
   plants: Plant[];
   onAddPlant: () => void;
   onScan: () => void;
+  onOpenPlantList: (filter: PlantListFilter) => void;
   onNavigateGuide: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ plants, onAddPlant, onScan, onNavigateGuide, isDarkMode, toggleDarkMode }) => {
+const HomeView: React.FC<HomeViewProps> = ({
+  plants,
+  onAddPlant,
+  onScan,
+  onOpenPlantList,
+  onNavigateGuide,
+  isDarkMode,
+  toggleDarkMode,
+}) => {
   const activeCount = plants.filter(p => !p.harvested).length;
   const harvestedCount = plants.filter(p => p.harvested).length;
   const remindersCount = plants.reduce((acc, plant) => acc + countActiveReminders(plant.reminders), 0);
@@ -60,15 +69,19 @@ const HomeView: React.FC<HomeViewProps> = ({ plants, onAddPlant, onScan, onNavig
 
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Active', value: activeCount, icon: Leaf },
-          { label: 'Reminders', value: remindersCount, icon: Calendar },
-          { label: 'Harvested', value: harvestedCount, icon: CheckCircle2 }
+          { label: 'Active', value: activeCount, icon: Leaf, filter: 'active' as PlantListFilter },
+          { label: 'Reminders', value: remindersCount, icon: Calendar, filter: 'reminders' as PlantListFilter },
+          { label: 'Harvested', value: harvestedCount, icon: CheckCircle2, filter: 'harvested' as PlantListFilter }
         ].map((stat, i) => (
-          <div key={i} className="bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm relative overflow-hidden transition-colors">
+          <button
+            key={i}
+            onClick={() => onOpenPlantList(stat.filter)}
+            className="bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 p-4 rounded-2xl flex flex-col items-center justify-center shadow-sm relative overflow-hidden transition-colors active:scale-[0.98]"
+          >
             <stat.icon size={14} className="absolute top-2 right-2 text-stone-200 dark:text-stone-700" />
             <span className="text-2xl font-black text-stone-800 dark:text-stone-100">{stat.value}</span>
             <span className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500 font-bold mt-1">{stat.label}</span>
-          </div>
+          </button>
         ))}
       </div>
 

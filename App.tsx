@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { AppTab, Plant, Species } from './types';
+import { AppTab, Plant, PlantListFilter, Species } from './types';
 import { storageService } from './services/storageService';
 import { syncAllReminderSchedules } from './services/nativeReminderService';
 import HomeView from './views/Home';
@@ -16,6 +16,8 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppTab>(AppTab.HOME);
   const [selectedPlantId, setSelectedPlantId] = useState<string | null>(null);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [plantListFilter, setPlantListFilter] = useState<PlantListFilter>('all');
+  const [isScanBusy, setIsScanBusy] = useState(false);
   const [plants, setPlants] = useState<Plant[]>([]);
   const [library, setLibrary] = useState<Species[]>([]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -26,6 +28,7 @@ const App: React.FC = () => {
   const activeTabRef = useRef(activeTab);
   const selectedPlantIdRef = useRef(selectedPlantId);
   const showLibraryRef = useRef(showLibrary);
+  const isScanBusyRef = useRef(isScanBusy);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -38,6 +41,10 @@ const App: React.FC = () => {
   useEffect(() => {
     showLibraryRef.current = showLibrary;
   }, [showLibrary]);
+
+  useEffect(() => {
+    isScanBusyRef.current = isScanBusy;
+  }, [isScanBusy]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
@@ -53,10 +60,36 @@ const App: React.FC = () => {
     setLibrary(storageService.getLibrary());
   };
 
-  const goHome = () => {
+  const confirmLeavingScan = () => {
+    if (activeTabRef.current !== AppTab.SCAN || !isScanBusyRef.current) {
+      return true;
+    }
+
+    return window.confirm('A scan is still running. Stop this scan and leave this page?');
+  };
+
+  const navigateToMainTab = (tab: AppTab, filter: PlantListFilter = 'all') => {
+    if (tab !== AppTab.SCAN && !confirmLeavingScan()) {
+      return false;
+    }
+
     setSelectedPlantId(null);
     setShowLibrary(false);
-    setActiveTab(AppTab.HOME);
+    setPlantListFilter(tab === AppTab.MY_PLANTS ? filter : 'all');
+    setActiveTab(tab);
+    return true;
+  };
+
+  const goHome = () => {
+    navigateToMainTab(AppTab.HOME);
+  };
+
+  const openPlantList = (filter: PlantListFilter) => {
+    navigateToMainTab(AppTab.MY_PLANTS, filter);
+  };
+
+  const openScan = () => {
+    navigateToMainTab(AppTab.SCAN);
   };
 
   const closeDetail = () => {
@@ -148,6 +181,7 @@ const App: React.FC = () => {
           onAdd={() => {
             setShowLibrary(false);
             void refreshData();
+            setPlantListFilter('all');
             setActiveTab(AppTab.MY_PLANTS);
           }}
         />
@@ -160,7 +194,8 @@ const App: React.FC = () => {
           <HomeView
             plants={plants}
             onAddPlant={() => setShowLibrary(true)}
-            onScan={() => setActiveTab(AppTab.SCAN)}
+            onScan={openScan}
+            onOpenPlantList={openPlantList}
             onNavigateGuide={() => setActiveTab(AppTab.GUIDES)}
             isDarkMode={isDarkMode}
             toggleDarkMode={toggleDarkMode}
@@ -174,10 +209,12 @@ const App: React.FC = () => {
             onBackHome={goHome}
             onAdd={() => setShowLibrary(true)}
             onSelectPlant={navigateToDetail}
+            selectedFilter={plantListFilter}
+            onSelectFilter={setPlantListFilter}
           />
         );
       case AppTab.SCAN:
-        return <ScanView onBackHome={goHome} />;
+        return <ScanView onBackHome={goHome} onBusyChange={setIsScanBusy} />;
       case AppTab.GUIDES:
         return <GuidesView onBackHome={goHome} />;
       case AppTab.SHOP:
@@ -187,7 +224,8 @@ const App: React.FC = () => {
           <HomeView
             plants={plants}
             onAddPlant={() => setShowLibrary(true)}
-            onScan={() => setActiveTab(AppTab.SCAN)}
+            onScan={openScan}
+            onOpenPlantList={openPlantList}
             onNavigateGuide={() => setActiveTab(AppTab.GUIDES)}
             isDarkMode={isDarkMode}
             toggleDarkMode={toggleDarkMode}
@@ -199,9 +237,7 @@ const App: React.FC = () => {
   const TabButton = ({ tab, icon: Icon, label }: { tab: AppTab; icon: any; label: string }) => (
     <button
       onClick={() => {
-        setActiveTab(tab);
-        setSelectedPlantId(null);
-        setShowLibrary(false);
+        navigateToMainTab(tab, tab === AppTab.MY_PLANTS ? 'all' : plantListFilter);
       }}
       className={`flex flex-col items-center justify-center w-full py-2 transition-colors ${
         activeTab === tab && !selectedPlantId && !showLibrary

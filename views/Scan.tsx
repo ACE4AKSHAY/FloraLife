@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Upload, RefreshCw, CheckCircle2, Lightbulb, Info, Leaf, ChevronLeft, ShieldAlert, ShieldCheck, Sprout, ClipboardList } from 'lucide-react';
 import { analyzePlantImage } from '../services/geminiService';
 import { runOfflineModel } from '../services/tfliteService';
@@ -13,13 +13,16 @@ import {
 
 interface ScanViewProps {
   onBackHome: () => void;
+  onBusyChange?: (busy: boolean) => void;
 }
 
-const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
+const ScanView: React.FC<ScanViewProps> = ({ onBackHome, onBusyChange }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [scanMode, setScanMode] = useState<'online' | 'offline'>('online');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const isMountedRef = useRef(true);
+  const activeScanJobRef = useRef(0);
 
   useEffect(() => {
     const updateStatus = () => setIsOnline(navigator.onLine);
@@ -33,6 +36,20 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
     };
   }, []);
 
+  useEffect(() => {
+    onBusyChange?.(isScanning);
+  }, [isScanning, onBusyChange]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      activeScanJobRef.current += 1;
+      onBusyChange?.(false);
+    };
+  }, [onBusyChange]);
+
   const analyzeImage = async (base64: string) => {
     if (scanMode === "online" && isOnline) {
       return analyzePlantImage(base64);
@@ -40,6 +57,25 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
 
     return runOfflineModel(base64);
   };
+
+  const readBlobAsBase64 = (blob: Blob) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string | null;
+
+        if (!dataUrl) {
+          reject(new Error('No image data found.'));
+          return;
+        }
+
+        resolve(dataUrl.split(',')[1]);
+      };
+
+      reader.onerror = () => reject(new Error('Could not read the selected image.'));
+      reader.readAsDataURL(blob);
+    });
 
   const takeCameraPhoto = async (): Promise<string | null> => {
     try {
@@ -80,31 +116,41 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
   };
 
   const scanFromPath = async (path: string) => {
+    const scanJobId = activeScanJobRef.current + 1;
+    activeScanJobRef.current = scanJobId;
     setIsScanning(true);
     setResult(null);
 
     try {
       const res = await fetch(path);
       const blob = await res.blob();
-      const reader = new FileReader();
+      const base64 = await readBlobAsBase64(blob);
 
-      reader.onloadend = async () => {
-        try {
-          const base64 = (reader.result as string).split(",")[1];
-          const scanRes = await analyzeImage(base64);
-          setResult(scanRes);
-        } catch {
-          alert("Scanning failed. Please try again.");
-        } finally {
-          setIsScanning(false);
-        }
-      };
+      if (!isMountedRef.current || activeScanJobRef.current !== scanJobId) {
+        return;
+      }
 
-      reader.readAsDataURL(blob);
+      const scanRes = await analyzeImage(base64);
+
+      if (!isMountedRef.current || activeScanJobRef.current !== scanJobId) {
+        return;
+      }
+
+      setResult(scanRes);
     } catch {
-      alert("Scanning failed. Please try again.");
-      setIsScanning(false);
+      if (isMountedRef.current && activeScanJobRef.current === scanJobId) {
+        alert("Scanning failed. Please try again.");
+      }
+    } finally {
+      if (isMountedRef.current && activeScanJobRef.current === scanJobId) {
+        setIsScanning(false);
+      }
     }
+  };
+
+  const cancelScan = () => {
+    activeScanJobRef.current += 1;
+    setIsScanning(false);
   };
 
   const handleCameraScan = async () => {
@@ -305,23 +351,25 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
 
       <div className="flex gap-2">
         <button
-          disabled={!isOnline}
-          onClick={() => setScanMode("online")}
+          disabled={isScanning || !isOnline}
+          onClick={() => !isScanning && setScanMode("online")}
           className={`flex-1 py-2 rounded-xl font-bold text-sm
           ${scanMode === "online"
               ? "bg-emerald-600 text-white"
               : "bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300"}
-          ${!isOnline ? "opacity-50 cursor-not-allowed" : ""}`}
+          ${!isOnline || isScanning ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           Online AI
         </button>
 
         <button
-          onClick={() => setScanMode("offline")}
+          disabled={isScanning}
+          onClick={() => !isScanning && setScanMode("offline")}
           className={`flex-1 py-2 rounded-xl font-bold text-sm
           ${scanMode === "offline"
               ? "bg-emerald-600 text-white"
-              : "bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300"}`}
+              : "bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300"}
+          ${isScanning ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           Offline AI
         </button>
@@ -363,6 +411,20 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome }) => {
               <span className="text-sm">Upload</span>
             </button>
           </div>
+
+          {isScanning && (
+            <div className="w-full space-y-3">
+              <p className="text-center text-xs font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                Scanning in progress
+              </p>
+              <button
+                onClick={cancelScan}
+                className="w-full border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 py-3 rounded-2xl font-bold"
+              >
+                Cancel Scan
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
