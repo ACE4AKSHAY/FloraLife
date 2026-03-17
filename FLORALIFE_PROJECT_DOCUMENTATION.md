@@ -100,17 +100,19 @@ The app stores plant data locally, uses Gemini for the primary online scan mode,
 
 - Displays total plants, active plants, reminders, and harvested plants
 - Offers shortcuts to plant library, scan, and guides
+- Uses the dashboard counters as quick links into filtered plant lists
 
 ### 7.2 My Plants
 
 - Shows all tracked plants
 - Opens plant detail view
 - Calculates progress based on planting date and duration
+- Supports filtered views for all plants, active plants, plants with reminders, and harvested archive
 
 ### 7.3 Plant Detail
 
 - Shows plant information and progress
-- Records care actions such as watering, feeding, pruning, and photo updates
+- Records care actions such as watering, feeding, pruning, photo updates, and custom care entries
 - Manages reminders
 - Displays lifecycle stages and care history
 
@@ -198,6 +200,7 @@ The app stores plant data locally, uses Gemini for the primary online scan mode,
 3. Capture or upload a leaf image
 4. Receive a scan result
 5. Review description, confidence, symptoms, causes, recommendations, and prevention steps
+6. If a scan is still running, the user can cancel it or confirm before leaving the screen
 
 ### Reminder workflow
 
@@ -248,6 +251,12 @@ The reminder system was upgraded from a web-only approach to a native Android ap
 ### Offline model note
 
 The offline classifier currently works with a compact set of trained disease and healthy leaf classes. It is intended for academic demonstration and offline convenience, not for certified agricultural decision-making.
+
+### Presentation note for offline AI
+
+- The most reliable demo images are single-leaf photos that closely resemble the PlantVillage training style
+- A presentation guide is available in `OFFLINE_MODEL_SAMPLE_IMAGES.md`
+- A local presentation sample pack is included in `presentation/offline-ai-samples/`
 
 ## 14. Data Storage and Privacy
 
@@ -319,6 +328,10 @@ The currently working project state includes:
 - working native reminders
 - working back navigation through the app and Android system back handling
 - plant creation with starting growth stage selection
+- plant detail custom care entries for medicine or special treatment logging
+- Home counter shortcuts that open filtered plant lists
+- filtered My Plants view for active, reminder, and harvested archive use
+- scan cancel button and leave confirmation while scanning
 - live overdue reminder highlighting while the app remains open
 
 ### Verification already completed
@@ -364,6 +377,7 @@ When the final FloraLife logo and icon are ready, update these places:
 - Cloud sync or account support
 - Better scan history management
 - Improved offline model and a larger training set
+- A curated built-in offline sample image pack for demo mode
 - More advanced custom guide generation
 - Better notification controls and reminder categories
 - APK release process and formal open-source publishing

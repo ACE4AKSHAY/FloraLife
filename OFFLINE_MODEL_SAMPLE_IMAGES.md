@@ -2,6 +2,34 @@
 
 Use this as a presentation checklist for the TensorFlow Lite classifier in FloraLife. For best accuracy, use one clear leaf, bright light, sharp focus, and minimal background clutter.
 
+## Best Presentation Strategy
+
+- Do not use random internet photos during the demo.
+- Use images that closely match the PlantVillage dataset style because the model classes come from that ecosystem.
+- The safest demo images are single-leaf photos with a plain or simple background and the disease clearly visible.
+- Avoid group photos, garden-wide photos, blurry leaves, mixed leaves, hands covering the leaf, or dark backgrounds.
+
+## Most Reliable Classes For Presentation
+
+If you want the smoothest offline demo, start with these classes first because they usually have visually obvious patterns:
+
+- `pepper bell bacterial spot`
+- `potato early blight`
+- `potato late blight`
+- `tomato early blight`
+- `tomato late blight`
+- `tomato septoria leaf spot`
+- `tomato tomato yellow leaf curl virus`
+- `squash powdery mildew`
+- `apple cedar apple rust`
+- `orange haunglongbing citrus greening`
+
+## Source Notes
+
+- FloraLife does not currently include bundled offline demo images inside the repo.
+- The original model source used during development is the PlantSaverApp asset reference from `akshayrana30/plant-disease-detection`.
+- For presentation images, a PlantVillage class-matched dataset mirror is the safest source because its classes align closely with `labels.txt`.
+
 ## Apple
 
 - `apple apple scab`: Apple leaf with dark circular scab patches on a plain background.
@@ -85,3 +113,13 @@ Use this as a presentation checklist for the TensorFlow Lite classifier in Flora
 ## Background
 
 - `background`: Single centered leaf only, sharp, bright, and filling most of the frame to avoid this class.
+
+## Where To Collect Images
+
+- Original project reference: `https://github.com/akshayrana30/plant-disease-detection/tree/master/PlantSaverApp/app/src/main/assets`
+- PlantVillage dataset mirror: `https://github.com/spMohanty/PlantVillage-Dataset/tree/master/raw/color`
+
+## Quick Rule
+
+- For the offline demo, give the model one clean leaf image from a matching PlantVillage-style class.
+- If you give an unknown plant, a mixed scene, or a general garden photo, the output can look weak even if the app itself is working correctly.

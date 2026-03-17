@@ -74,6 +74,37 @@
   - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
+
+## 2026-03-17
+
+- Documentation refresh:
+  - Updated `README.md` with the latest plant-management, scan-flow, and offline presentation notes.
+  - Updated `FLORALIFE_PROJECT_DOCUMENTATION.md` to include:
+    - custom care entries
+    - dashboard shortcut counters
+    - filtered plant views
+    - scan cancel / leave confirmation
+    - offline presentation sample-pack note
+  - Updated `OFFLINE_MODEL_SAMPLE_IMAGES.md` with stronger presentation guidance and source notes.
+  - Added `scripts/update_docx_from_md.ps1` so the FloraLife Word document can be regenerated from the markdown write-up without requiring Microsoft Word.
+  - Regenerated `FLORALIFE_PROJECT_DOCUMENTATION.docx` from the updated markdown file.
+- Offline presentation sample pack:
+  - Confirmed there were no bundled demo images already present inside the FloraLife project.
+  - Downloaded a curated set of class-matched sample images into `presentation/offline-ai-samples/`.
+  - Added `presentation/offline-ai-samples/README.md` describing the included demo images.
+  - Added `presentation/offline-ai-samples/sources.csv` with the GitHub source page and raw image URL for each downloaded sample.
+  - Chose visually distinctive classes for safer presentation results, including:
+    - pepper bell bacterial spot
+    - potato early blight
+    - potato late blight
+    - tomato early blight
+    - tomato late blight
+    - tomato septoria leaf spot
+    - tomato yellow leaf curl virus
+    - tomato healthy
+    - squash powdery mildew
+    - apple cedar apple rust
+    - orange haunglongbing citrus greening
 - Plant flow and scan UX update:
   - Added a new `Custom` care action in Plant Detail for medicine or any special plant task.
   - Replaced the duplicate quick `Photo` action with the new custom-care action because photo adding already exists in the Photos tab.

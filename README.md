@@ -58,13 +58,17 @@ FloraLife is a local-first plant care app built with React, TypeScript, Vite, an
 - Add plants from the built-in library
 - Add custom plant profiles
 - Choose a starting growth stage when creating a plant
-- Record watering, feeding, pruning, and photo events
+- Record watering, feeding, pruning, photo events, and custom care entries such as medicine or special treatment
+- Use Home dashboard counters as shortcuts into filtered plant lists
+- Keep harvested plants in a simple archive for review and presentation
 
 ### Scanning
 
 - Online scan is the primary diagnosis mode
 - Offline scan uses the Android TensorFlow Lite model for no-internet use
 - Offline result text is fully hardcoded in the app for presentation-friendly output
+- Running scans can be canceled directly from the scan screen
+- Leaving the scan screen during an active scan now asks for confirmation instead of silently stopping
 
 ### Reminders
 
@@ -87,6 +91,7 @@ When you create the final logo and icon, update these places:
 - `README.md`: GitHub-friendly overview
 - `FLORALIFE_PROJECT_DOCUMENTATION.md`: full project write-up and usage guide
 - `OFFLINE_MODEL_SAMPLE_IMAGES.md`: sample image suggestions for the offline model classes
+- `presentation/offline-ai-samples/`: included presentation image pack for the offline model
 - `CODEX_WORKLOG.md`: technical change log during Codex work
 
 ## Notes
