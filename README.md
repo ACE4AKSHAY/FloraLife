@@ -90,6 +90,7 @@ When you create the final logo and icon, update these places:
 
 - `README.md`: GitHub-friendly overview
 - `FLORALIFE_PROJECT_DOCUMENTATION.md`: full project write-up and usage guide
+- `FLORALIFE_PRINT_DOCUMENTATION.md`: shorter print-friendly project document
 - `OFFLINE_MODEL_SAMPLE_IMAGES.md`: sample image suggestions for the offline model classes
 - `presentation/offline-ai-samples/`: included presentation image pack for the offline model
 - `CODEX_WORKLOG.md`: technical change log during Codex work
