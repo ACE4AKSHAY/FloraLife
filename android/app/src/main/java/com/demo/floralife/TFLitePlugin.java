@@ -31,6 +31,18 @@ public class TFLitePlugin extends Plugin {
     private Interpreter interpreter;
     private List<String> labels = new ArrayList<>();
 
+    private static final class PredictionResult {
+        final int index;
+        final float score;
+        final String mode;
+
+        PredictionResult(int index, float score, String mode) {
+            this.index = index;
+            this.score = score;
+            this.mode = mode;
+        }
+    }
+
     @Override
     public void load() {
         try {
@@ -107,29 +119,14 @@ public class TFLitePlugin extends Plugin {
                 return;
             }
 
-            Object input = createModelInput(bitmap);
-
-            float[][] output = new float[1][labels.size()];
-
-            interpreter.run(input, output);
-
-            int index = 0;
-            float max = 0;
-
-            for (int i = 0; i < output[0].length; i++) {
-                if (output[0][i] > max) {
-                    max = output[0][i];
-                    index = i;
-                }
-            }
-
-            String disease = labels.get(index);
-            Log.i(TAG, "Prediction complete: " + disease + " (" + max + ")");
+            PredictionResult prediction = runPrediction(bitmap);
+            String disease = labels.get(prediction.index);
+            Log.i(TAG, "Prediction complete (" + prediction.mode + "): " + disease + " (" + prediction.score + ")");
 
             JSObject ret = new JSObject();
 
             ret.put("disease", disease);
-            ret.put("confidence", max);
+            ret.put("confidence", prediction.score);
 
             call.resolve(ret);
         } catch (Exception e) {
@@ -138,29 +135,115 @@ public class TFLitePlugin extends Plugin {
         }
     }
 
-    private Object createModelInput(Bitmap bitmap) {
-        int[] inputShape = interpreter.getInputTensor(0).shape();
+    private PredictionResult runPrediction(Bitmap bitmap) {
         DataType inputType = interpreter.getInputTensor(0).dataType();
+
+        if (inputType == DataType.FLOAT32) {
+            PredictionResult rawPrediction = runFloatPrediction(bitmap, false, "float-raw255");
+            PredictionResult normalizedPrediction = runFloatPrediction(bitmap, true, "float-normalized");
+            PredictionResult bestPrediction = chooseBestPrediction(rawPrediction, normalizedPrediction);
+
+            Log.i(
+                    TAG,
+                    "Float preprocessing comparison -> raw: "
+                            + labels.get(rawPrediction.index)
+                            + " ("
+                            + rawPrediction.score
+                            + "), normalized: "
+                            + labels.get(normalizedPrediction.index)
+                            + " ("
+                            + normalizedPrediction.score
+                            + "), selected: "
+                            + labels.get(bestPrediction.index)
+                            + " ("
+                            + bestPrediction.mode
+                            + ")"
+            );
+
+            return bestPrediction;
+        }
+
+        Object input = createQuantizedInput(bitmap);
+        float[][] output = new float[1][labels.size()];
+        interpreter.run(input, output);
+        return findBestPrediction(output[0], "quantized");
+    }
+
+    private PredictionResult runFloatPrediction(Bitmap bitmap, boolean normalize, String mode) {
+        ByteBuffer input = createFloatInput(bitmap, normalize);
+        float[][] output = new float[1][labels.size()];
+        interpreter.run(input, output);
+        return findBestPrediction(output[0], mode);
+    }
+
+    private PredictionResult chooseBestPrediction(PredictionResult first, PredictionResult second) {
+        String firstLabel = labels.get(first.index);
+        String secondLabel = labels.get(second.index);
+        boolean firstBackground = "background".equals(firstLabel);
+        boolean secondBackground = "background".equals(secondLabel);
+
+        if (firstBackground != secondBackground) {
+            PredictionResult nonBackground = firstBackground ? second : first;
+            PredictionResult background = firstBackground ? first : second;
+
+            if (nonBackground.score >= background.score * 0.85f) {
+                return nonBackground;
+            }
+        }
+
+        return first.score >= second.score ? first : second;
+    }
+
+    private PredictionResult findBestPrediction(float[] scores, String mode) {
+        int index = 0;
+        float max = Float.NEGATIVE_INFINITY;
+
+        for (int i = 0; i < scores.length; i++) {
+            if (scores[i] > max) {
+                max = scores[i];
+                index = i;
+            }
+        }
+
+        return new PredictionResult(index, max, mode);
+    }
+
+    private ByteBuffer createFloatInput(Bitmap bitmap, boolean normalize) {
+        int[] inputShape = interpreter.getInputTensor(0).shape();
         int height = inputShape[1];
         int width = inputShape[2];
         Bitmap resized = Bitmap.createScaledBitmap(bitmap, width, height, true);
+        ByteBuffer input = ByteBuffer.allocateDirect(4 * height * width * 3);
+        input.order(ByteOrder.nativeOrder());
 
-        if (inputType == DataType.FLOAT32) {
-            float[][][][] input = new float[1][height][width][3];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int pixel = resized.getPixel(x, y);
+                float red = ((pixel >> 16) & 0xFF);
+                float green = ((pixel >> 8) & 0xFF);
+                float blue = (pixel & 0xFF);
 
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    int pixel = resized.getPixel(x, y);
-
-                    input[0][y][x][0] = ((pixel >> 16) & 0xFF) / 255.0f;
-                    input[0][y][x][1] = ((pixel >> 8) & 0xFF) / 255.0f;
-                    input[0][y][x][2] = (pixel & 0xFF) / 255.0f;
+                if (normalize) {
+                    red /= 255.0f;
+                    green /= 255.0f;
+                    blue /= 255.0f;
                 }
-            }
 
-            return input;
+                input.putFloat(red);
+                input.putFloat(green);
+                input.putFloat(blue);
+            }
         }
 
+        input.rewind();
+        return input;
+    }
+
+    private Object createQuantizedInput(Bitmap bitmap) {
+        int[] inputShape = interpreter.getInputTensor(0).shape();
+        int height = inputShape[1];
+        int width = inputShape[2];
+        Bitmap resized = Bitmap.createScaledBitmap(bitmap, width, height, true);
         byte[][][][] input = new byte[1][height][width][3];
 
         for (int y = 0; y < height; y++) {

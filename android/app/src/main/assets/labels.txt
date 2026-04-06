@@ -2,6 +2,7 @@ apple apple scab
 apple black rot
 apple cedar apple rust
 apple healthy
+background
 blueberry healthy
 cherry including sour powdery mildew
 cherry including sour healthy
@@ -36,4 +37,3 @@ tomato target spot
 tomato tomato yellow leaf curl virus
 tomato tomato mosaic virus
 tomato healthy
-background

@@ -114,6 +114,19 @@
   - Included placeholders for student details so the document can be personalized before printing.
   - Added the new compact document to the documentation list in `README.md`.
   - Generated `FLORALIFE_PRINT_DOCUMENTATION.docx` from the compact markdown content.
+
+## 2026-04-06
+
+- Offline AI diagnosis fix:
+  - Investigated the native TensorFlow Lite plugin because multiple sample images were returning the same bell-pepper class.
+  - Corrected the offline label order in `android/app/src/main/assets/labels.txt` by moving `background` back to the model-aligned position after `apple healthy`.
+  - Updated `TFLitePlugin.java` so the FLOAT32 model path now tries both likely preprocessing modes:
+    - raw 0-255 float input
+    - normalized 0-1 float input
+  - Added selection logic that keeps the stronger prediction and avoids preferring `background` when a close non-background match exists.
+  - Added comparison logging in the native plugin so future logcat checks can show which preprocessing mode was selected.
+- Verification:
+  - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
 - Plant flow and scan UX update:
   - Added a new `Custom` care action in Plant Detail for medicine or any special plant task.
   - Replaced the duplicate quick `Photo` action with the new custom-care action because photo adding already exists in the Photos tab.
