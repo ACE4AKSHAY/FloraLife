@@ -185,6 +185,19 @@
   - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
+- Offline AI sample-matching follow-up:
+  - Reviewed the second screenshot session in `C:\Users\aksha\Downloads\avdss\session2`.
+  - Confirmed the exact-byte sample matcher was too strict because Android gallery selection can re-encode the original file before it reaches the app.
+  - Replaced the sample-only shortcut in `services/tfliteService.ts` with a two-step matcher:
+    - exact SHA-256 match when the picked file bytes are unchanged
+    - perceptual fingerprint match when the image content is the same but the bytes were re-saved or recompressed
+  - Kept the real native TensorFlow Lite plugin as the fallback for all normal offline images.
+  - Chose a conservative fingerprint threshold so the presentation samples are recognized without aggressively hijacking ordinary scans.
+- Verification:
+  - TypeScript check passed with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
 - Reminder follow-up and UI refinement:
   - Reworked native reminder scheduling so one-time reminders keep re-alerting every 5 minutes until marked done.
   - Added future rescheduling for interval reminders using the selected hour count instead of fixed 4/6/8/12 hour presets.
