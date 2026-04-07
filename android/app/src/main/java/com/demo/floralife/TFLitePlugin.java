@@ -20,7 +20,6 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @CapacitorPlugin(name = "TFLite")
@@ -34,20 +33,16 @@ public class TFLitePlugin extends Plugin {
     private static final class PredictionResult {
         final int index;
         final float score;
-        final String mode;
 
-        PredictionResult(int index, float score, String mode) {
+        PredictionResult(int index, float score) {
             this.index = index;
             this.score = score;
-            this.mode = mode;
         }
     }
 
     @Override
     public void load() {
         try {
-            Log.i(TAG, "Loading TensorFlow Lite model and labels");
-
             InputStream is = getContext().getAssets().open("model.tflite");
             byte[] model = new byte[is.available()];
             is.read(model);
@@ -59,20 +54,6 @@ public class TFLitePlugin extends Plugin {
             modelBuffer.rewind();
 
             interpreter = new Interpreter(modelBuffer);
-            Log.i(
-                    TAG,
-                    "Model input tensor: "
-                            + Arrays.toString(interpreter.getInputTensor(0).shape())
-                            + " "
-                            + interpreter.getInputTensor(0).dataType()
-            );
-            Log.i(
-                    TAG,
-                    "Model output tensor: "
-                            + Arrays.toString(interpreter.getOutputTensor(0).shape())
-                            + " "
-                            + interpreter.getOutputTensor(0).dataType()
-            );
 
             BufferedReader reader =
                     new BufferedReader(
@@ -84,11 +65,10 @@ public class TFLitePlugin extends Plugin {
             String line;
 
             while ((line = reader.readLine()) != null) {
-                labels.add(line);
+                labels.add(line.trim());
             }
 
             reader.close();
-            Log.i(TAG, "TFLite plugin ready with " + labels.size() + " labels");
         } catch (Exception e) {
             Log.e(TAG, "Failed to load TensorFlow Lite assets", e);
         }
@@ -108,8 +88,6 @@ public class TFLitePlugin extends Plugin {
                 return;
             }
 
-            Log.i(TAG, "Received image for offline prediction");
-
             byte[] decoded = Base64.decode(base64, Base64.DEFAULT);
             Bitmap bitmap =
                     BitmapFactory.decodeByteArray(decoded, 0, decoded.length);
@@ -121,7 +99,6 @@ public class TFLitePlugin extends Plugin {
 
             PredictionResult prediction = runPrediction(bitmap);
             String disease = labels.get(prediction.index);
-            Log.i(TAG, "Prediction complete (" + prediction.mode + "): " + disease + " (" + prediction.score + ")");
 
             JSObject ret = new JSObject();
 
@@ -139,41 +116,22 @@ public class TFLitePlugin extends Plugin {
         DataType inputType = interpreter.getInputTensor(0).dataType();
 
         if (inputType == DataType.FLOAT32) {
-            PredictionResult rawPrediction = runFloatPrediction(bitmap, false, "float-raw255");
-            PredictionResult normalizedPrediction = runFloatPrediction(bitmap, true, "float-normalized");
-            PredictionResult bestPrediction = chooseBestPrediction(rawPrediction, normalizedPrediction);
-
-            Log.i(
-                    TAG,
-                    "Float preprocessing comparison -> raw: "
-                            + labels.get(rawPrediction.index)
-                            + " ("
-                            + rawPrediction.score
-                            + "), normalized: "
-                            + labels.get(normalizedPrediction.index)
-                            + " ("
-                            + normalizedPrediction.score
-                            + "), selected: "
-                            + labels.get(bestPrediction.index)
-                            + " ("
-                            + bestPrediction.mode
-                            + ")"
-            );
-
-            return bestPrediction;
+            PredictionResult rawPrediction = runFloatPrediction(bitmap, false);
+            PredictionResult normalizedPrediction = runFloatPrediction(bitmap, true);
+            return chooseBestPrediction(rawPrediction, normalizedPrediction);
         }
 
         Object input = createQuantizedInput(bitmap);
         float[][] output = new float[1][labels.size()];
         interpreter.run(input, output);
-        return findBestPrediction(output[0], "quantized");
+        return findBestPrediction(output[0]);
     }
 
-    private PredictionResult runFloatPrediction(Bitmap bitmap, boolean normalize, String mode) {
+    private PredictionResult runFloatPrediction(Bitmap bitmap, boolean normalize) {
         ByteBuffer input = createFloatInput(bitmap, normalize);
         float[][] output = new float[1][labels.size()];
         interpreter.run(input, output);
-        return findBestPrediction(output[0], mode);
+        return findBestPrediction(output[0]);
     }
 
     private PredictionResult chooseBestPrediction(PredictionResult first, PredictionResult second) {
@@ -194,7 +152,7 @@ public class TFLitePlugin extends Plugin {
         return first.score >= second.score ? first : second;
     }
 
-    private PredictionResult findBestPrediction(float[] scores, String mode) {
+    private PredictionResult findBestPrediction(float[] scores) {
         int index = 0;
         float max = Float.NEGATIVE_INFINITY;
 
@@ -205,7 +163,7 @@ public class TFLitePlugin extends Plugin {
             }
         }
 
-        return new PredictionResult(index, max, mode);
+        return new PredictionResult(index, max);
     }
 
     private ByteBuffer createFloatInput(Bitmap bitmap, boolean normalize) {

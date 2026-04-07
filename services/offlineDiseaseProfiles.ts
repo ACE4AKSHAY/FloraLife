@@ -896,11 +896,15 @@ export const OFFLINE_MODEL_SAMPLE_REFERENCE = Object.entries(OFFLINE_DISEASE_PRO
   }),
 );
 
+const normalizeOfflineLabel = (label: string) => label.trim().toLowerCase().replace(/\s+/g, " ");
+
 export function getOfflineDiseaseProfile(label: string): OfflineDiseaseProfile {
+  const normalizedLabel = normalizeOfflineLabel(label);
+
   return (
-    OFFLINE_DISEASE_PROFILES[label] ??
+    OFFLINE_DISEASE_PROFILES[normalizedLabel] ??
     reviewNeeded(
-      label,
+      normalizedLabel,
       "This result does not yet have a custom explanation in FloraLife.",
       "Best demo image: a single leaf photo with strong lighting and clear symptoms.",
     )

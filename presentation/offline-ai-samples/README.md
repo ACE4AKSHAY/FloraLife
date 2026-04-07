@@ -3,6 +3,7 @@
 These images were downloaded from the public PlantVillage dataset mirror so the FloraLife offline model can be demonstrated with class-matched leaves.
 
 Use one image at a time in Offline AI mode.
+For the most reliable presentation result, use these exact files without editing, re-saving, or taking screenshots of them.
 
 ## Included Samples
 

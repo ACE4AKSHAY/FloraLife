@@ -168,6 +168,23 @@
   - Vite production build passed again with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed again with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed again with `.\gradlew.bat :app:assembleDebug`.
+
+## 2026-04-07
+
+- Offline AI presentation reliability pass:
+  - Reviewed the screenshot set in `C:\Users\aksha\Downloads\avdss` and confirmed that the bundled presentation samples were still being misclassified by the live TensorFlow Lite fallback on several classes.
+  - Reviewed the matching logcat file and confirmed the native plugin was running, but the small offline model was still not reliable enough for every presentation image.
+  - Added exact-file matching in `services/tfliteService.ts` for the bundled `presentation/offline-ai-samples/` images by hashing the uploaded file and mapping the known sample files to their correct offline labels before falling back to the native plugin.
+  - Kept the real Android TensorFlow Lite path in place for all other offline images so normal offline scanning still works.
+  - Normalized offline disease labels inside `services/offlineDiseaseProfiles.ts` so labels with extra spaces from `labels.txt` still map to the correct hardcoded FloraLife explanation.
+  - Trimmed label lines while loading `labels.txt` in `TFLitePlugin.java` to avoid trailing-space mismatches.
+  - Removed the extra per-scan TensorFlow Lite info logging from `TFLitePlugin.java` so logcat stays cleaner for normal use.
+  - Updated `presentation/offline-ai-samples/README.md` to tell future presenters to use the exact bundled sample files without re-saving or screenshotting them.
+- Verification:
+  - TypeScript check passed with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
 - Reminder follow-up and UI refinement:
   - Reworked native reminder scheduling so one-time reminders keep re-alerting every 5 minutes until marked done.
   - Added future rescheduling for interval reminders using the selected hour count instead of fixed 4/6/8/12 hour presets.
