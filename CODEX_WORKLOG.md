@@ -74,6 +74,24 @@
   - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
+- Cleanup and documentation references pass:
+  - Reviewed the latest `session3` screenshot set in `C:\Users\aksha\Downloads\avdss\session3`; user-confirmed sample-image behavior is now accurate for presentation use.
+  - Removed unused native Android helper classes:
+    - `android/app/src/main/java/com/demo/floralife/TFLiteHelper.java`
+    - `android/app/src/main/java/com/demo/floralife/TFLitePlantClassifier.java`
+  - Removed default Capacitor sample test files that were not related to FloraLife:
+    - `android/app/src/androidTest/java/com/getcapacitor/myapp/ExampleInstrumentedTest.java`
+    - `android/app/src/test/java/com/getcapacitor/myapp/ExampleUnitTest.java`
+  - Added full references sections with direct resource links to:
+    - `FLORALIFE_PROJECT_DOCUMENTATION.md`
+    - `FLORALIFE_PRINT_DOCUMENTATION.md`
+    - `README.md`
+  - Regenerated the matching DOCX documentation files after the markdown updates.
+- Verification:
+  - TypeScript check passed with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
 
 ## 2026-03-17
 

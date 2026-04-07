@@ -100,3 +100,19 @@ When you create the final logo and icon, update these places:
 - This project is currently aimed at academic use, not production use.
 - User data is stored locally on the device/browser through local storage.
 - The offline model is intended for presentation support and no-internet usage, not medical or agricultural certification.
+
+## References And Resources
+
+- React: https://react.dev/
+- TypeScript: https://www.typescriptlang.org/docs/
+- Vite: https://vite.dev/guide/
+- Tailwind CSS: https://tailwindcss.com/docs
+- Capacitor: https://capacitorjs.com/docs
+- Capacitor App plugin: https://capacitorjs.com/docs/apis/app
+- Capacitor Camera plugin: https://capacitorjs.com/docs/apis/camera
+- Capacitor Local Notifications plugin: https://capacitorjs.com/docs/apis/local-notifications
+- Gemini API docs: https://ai.google.dev/gemini-api/docs
+- TensorFlow Lite on Android: https://www.tensorflow.org/lite/android
+- Offline model asset reference: https://github.com/akshayrana30/plant-disease-detection/tree/master/PlantSaverApp/app/src/main/assets
+- PlantVillage dataset mirror: https://github.com/spMohanty/PlantVillage-Dataset/tree/master/raw/color
+- Local sample-source manifest: `presentation/offline-ai-samples/sources.csv`

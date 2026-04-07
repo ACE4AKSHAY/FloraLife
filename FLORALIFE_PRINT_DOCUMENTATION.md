@@ -135,9 +135,16 @@ FloraLife successfully combines plant management, care logging, AI-assisted scan
 
 ### References
 
-- Google Gemini API documentation
-- Capacitor App plugin
-- Capacitor Local Notifications plugin
-- Capacitor Camera plugin
-- TensorFlow Lite Android integration
-- PlantVillage-style class dataset used for offline-model-aligned presentation samples
+- React documentation: https://react.dev/
+- TypeScript documentation: https://www.typescriptlang.org/docs/
+- Vite guide: https://vite.dev/guide/
+- Tailwind CSS documentation: https://tailwindcss.com/docs
+- Capacitor documentation: https://capacitorjs.com/docs
+- Capacitor App plugin: https://capacitorjs.com/docs/apis/app
+- Capacitor Camera plugin: https://capacitorjs.com/docs/apis/camera
+- Capacitor Local Notifications plugin: https://capacitorjs.com/docs/apis/local-notifications
+- Gemini API documentation: https://ai.google.dev/gemini-api/docs
+- TensorFlow Lite on Android: https://www.tensorflow.org/lite/android
+- Offline model asset reference: https://github.com/akshayrana30/plant-disease-detection/tree/master/PlantSaverApp/app/src/main/assets
+- PlantVillage dataset mirror for presentation samples: https://github.com/spMohanty/PlantVillage-Dataset/tree/master/raw/color
+- Local project sample-source manifest: `presentation/offline-ai-samples/sources.csv`

@@ -23,7 +23,7 @@
 19. Limitations
 20. Future Enhancements
 21. Conclusion
-22. Reference Notes
+22. References
 
 ## 1. Abstract
 
@@ -386,13 +386,37 @@ When the final FloraLife logo and icon are ready, update these places:
 
 FloraLife successfully combines plant tracking, care logging, AI-assisted scan support, offline diagnosis, and native reminders in one academic project. The project demonstrates how a web app can be extended into a native Android application while still keeping a local-first and lightweight design. In its current form, FloraLife is well suited for final-year project presentation, demonstration, and future open-source improvement.
 
-## 22. Reference Notes
+## 22. References
 
-These notes are relevant to the FloraLife implementation:
+### Core framework and frontend
 
-- Google Gemini API for online scanning
-- Capacitor App plugin for Android back handling
-- Capacitor Local Notifications for native reminders
-- Capacitor Camera for image capture
-- TensorFlow Lite model assets used in the Android plugin
-- Offline model class assets adapted from the referenced PlantSaverApp asset source provided during development
+- React documentation: https://react.dev/
+- TypeScript documentation: https://www.typescriptlang.org/docs/
+- Vite guide: https://vite.dev/guide/
+- Tailwind CSS documentation: https://tailwindcss.com/docs
+- Lucide React documentation: https://lucide.dev/guide/packages/lucide-react
+
+### Capacitor and Android integration
+
+- Capacitor documentation: https://capacitorjs.com/docs
+- Capacitor App plugin: https://capacitorjs.com/docs/apis/app
+- Capacitor Camera plugin: https://capacitorjs.com/docs/apis/camera
+- Capacitor Local Notifications plugin: https://capacitorjs.com/docs/apis/local-notifications
+- Capacitor Network plugin: https://capacitorjs.com/docs/apis/network
+- Android Studio: https://developer.android.com/studio
+- Android alarms and reminders: https://developer.android.com/develop/background-work/services/alarms
+- Android exact alarms behavior: https://developer.android.com/about/versions/14/changes/schedule-exact-alarms
+
+### AI and machine learning references
+
+- Gemini API documentation: https://ai.google.dev/gemini-api/docs
+- TensorFlow Lite on Android: https://www.tensorflow.org/lite/android
+- Offline model asset reference used during development: https://github.com/akshayrana30/plant-disease-detection/tree/master/PlantSaverApp/app/src/main/assets
+- PlantVillage dataset mirror used for presentation-aligned samples: https://github.com/spMohanty/PlantVillage-Dataset/tree/master/raw/color
+
+### Project resource references
+
+- Offline sample source manifest: `presentation/offline-ai-samples/sources.csv`
+- Offline sample usage guide: `presentation/offline-ai-samples/README.md`
+- Offline sample suggestion guide: `OFFLINE_MODEL_SAMPLE_IMAGES.md`
+- Technical change log for the Codex work: `CODEX_WORKLOG.md`
