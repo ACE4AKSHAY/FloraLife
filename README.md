@@ -51,6 +51,36 @@ FloraLife is a local-first plant care app built with React, TypeScript, Vite, an
 3. Open the Android project in Android Studio from `android/`
 4. Run the app on an emulator or real device
 
+## API Key Setup
+
+### For developers
+
+- Keep real Gemini keys only in `.env.local`
+- Do not commit `.env.local` to GitHub
+- Use `.env.example` as the template
+- Add your private key like this:
+
+```env
+VITE_GEMINI_API_KEY=your_key_here
+```
+
+### For project members and users
+
+- FloraLife now supports a personal Gemini key saved only on the current device
+- Open `Scan`
+- Switch to `Online AI`
+- Tap `Add Personal Key`
+- Paste the key and save it
+
+If no Gemini key is available, Online AI will stay unavailable, but Offline AI and the rest of the app can still be used.
+
+### Important security note
+
+- A key inside `.env.local` stays out of GitHub if you do not commit it
+- But any key bundled into a public APK or web build can still be extracted
+- For public releases, it is safer to ship the app without a developer key and let each user add their own personal key
+- A future backend proxy is the correct long-term solution if you want to fully protect a shared project key
+
 ## Main Functional Areas
 
 ### Plant management
@@ -91,9 +121,24 @@ When you create the final logo and icon, update these places:
 - `README.md`: GitHub-friendly overview
 - `FLORALIFE_PROJECT_DOCUMENTATION.md`: full project write-up and usage guide
 - `FLORALIFE_PRINT_DOCUMENTATION.md`: shorter print-friendly project document
+- `APK_RELEASE_GUIDE.md`: GitHub-safe APK and API key guide
+- `.env.example`: template for private developer Gemini key setup
 - `OFFLINE_MODEL_SAMPLE_IMAGES.md`: sample image suggestions for the offline model classes
 - `presentation/offline-ai-samples/`: included presentation image pack for the offline model
 - `CODEX_WORKLOG.md`: technical change log during Codex work
+
+## APK Release Prep
+
+- Debug APK: `npm run apk:debug`
+- Release APK: `npm run apk:release`
+- Release prep guide: `APK_RELEASE_GUIDE.md`
+
+For team sharing through GitHub, the recommended flow is:
+
+- keep the repo public/private without any real Gemini key
+- let teammates use `.env.local` for private local builds
+- or let them save a personal Gemini key directly inside the app
+- avoid distributing a public APK that contains your own developer key
 
 ## Notes
 

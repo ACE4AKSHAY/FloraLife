@@ -1,6 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Upload, RefreshCw, CheckCircle2, Lightbulb, Info, Leaf, ChevronLeft, ShieldAlert, ShieldCheck, Sprout, ClipboardList } from 'lucide-react';
 import { analyzePlantImage } from '../services/geminiService';
+import {
+  clearStoredGeminiApiKey,
+  getGeminiApiKeySource,
+  hasGeminiApiKey,
+  MISSING_GEMINI_API_KEY_MESSAGE,
+  saveStoredGeminiApiKey,
+} from '../services/geminiKeyService';
+import type { GeminiApiKeySource } from '../services/geminiKeyService';
 import { runOfflineModel } from '../services/tfliteService';
 import { ScanResult } from '../types';
 
@@ -21,10 +29,19 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome, onBusyChange }) => {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [scanMode, setScanMode] = useState<'online' | 'offline'>('online');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [geminiKeySource, setGeminiKeySource] = useState<GeminiApiKeySource>('missing');
+  const [showGeminiKeyEditor, setShowGeminiKeyEditor] = useState(false);
+  const [geminiKeyInput, setGeminiKeyInput] = useState('');
   const isMountedRef = useRef(true);
   const activeScanJobRef = useRef(0);
 
+  const refreshGeminiKeyState = () => {
+    setGeminiKeySource(getGeminiApiKeySource());
+  };
+
   useEffect(() => {
+    refreshGeminiKeyState();
+
     const updateStatus = () => setIsOnline(navigator.onLine);
 
     window.addEventListener("online", updateStatus);
@@ -137,9 +154,10 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome, onBusyChange }) => {
       }
 
       setResult(scanRes);
-    } catch {
+    } catch (error) {
       if (isMountedRef.current && activeScanJobRef.current === scanJobId) {
-        alert("Scanning failed. Please try again.");
+        const message = error instanceof Error ? error.message : 'Scanning failed. Please try again.';
+        alert(message);
       }
     } finally {
       if (isMountedRef.current && activeScanJobRef.current === scanJobId) {
@@ -153,14 +171,59 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome, onBusyChange }) => {
     setIsScanning(false);
   };
 
+  const ensureOnlineScanReady = () => {
+    if (scanMode !== 'online' || !isOnline) {
+      return true;
+    }
+
+    if (!hasGeminiApiKey()) {
+      setShowGeminiKeyEditor(true);
+      alert(MISSING_GEMINI_API_KEY_MESSAGE);
+      return false;
+    }
+
+    return true;
+  };
+
   const handleCameraScan = async () => {
+    if (!ensureOnlineScanReady()) {
+      return;
+    }
+
     const path = await takeCameraPhoto();
     if (path) scanFromPath(path);
   };
 
   const handleGalleryScan = async () => {
+    if (!ensureOnlineScanReady()) {
+      return;
+    }
+
     const path = await pickGalleryPhoto();
     if (path) scanFromPath(path);
+  };
+
+  const handleSaveGeminiKey = () => {
+    const cleanedKey = geminiKeyInput.trim();
+
+    if (!cleanedKey) {
+      alert('Paste a Gemini API key first.');
+      return;
+    }
+
+    saveStoredGeminiApiKey(cleanedKey);
+    setGeminiKeyInput('');
+    setShowGeminiKeyEditor(false);
+    refreshGeminiKeyState();
+    alert('Personal Gemini key saved on this device.');
+  };
+
+  const handleClearGeminiKey = () => {
+    clearStoredGeminiApiKey();
+    setGeminiKeyInput('');
+    setShowGeminiKeyEditor(false);
+    refreshGeminiKeyState();
+    alert('Saved personal Gemini key removed from this device.');
   };
 
   const getStatusTitle = (status: ScanResult['status']) => {
@@ -374,6 +437,78 @@ const ScanView: React.FC<ScanViewProps> = ({ onBackHome, onBusyChange }) => {
           Offline AI
         </button>
       </div>
+
+      {scanMode === 'online' && (
+        <div className="bg-white dark:bg-[#1e1e1c] rounded-2xl p-4 border border-stone-100 dark:border-stone-800 shadow-sm space-y-3">
+          <div>
+            <p className="text-sm font-black text-stone-800 dark:text-stone-100">Gemini Key</p>
+            <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+              {geminiKeySource === 'personal'
+                ? 'Using a personal Gemini key saved only on this device.'
+                : geminiKeySource === 'developer'
+                  ? 'This build already has a developer key. For public sharing, it is safer to use a personal key instead.'
+                  : 'Online AI needs a Gemini API key. Add your own personal key, or keep using Offline AI.'}
+            </p>
+          </div>
+
+          {showGeminiKeyEditor ? (
+            <div className="space-y-3">
+              <input
+                type="password"
+                value={geminiKeyInput}
+                onChange={(event) => setGeminiKeyInput(event.target.value)}
+                placeholder="Paste Gemini API key"
+                className="w-full rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 px-4 py-3 text-sm text-stone-700 dark:text-stone-200 outline-none"
+              />
+              <p className="text-[11px] text-stone-400 dark:text-stone-500">
+                Saved only on this device. Not uploaded to GitHub by FloraLife.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleSaveGeminiKey}
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold"
+                >
+                  Save Key
+                </button>
+                <button
+                  onClick={() => {
+                    setGeminiKeyInput('');
+                    setShowGeminiKeyEditor(false);
+                  }}
+                  className="border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 px-4 py-2 rounded-xl text-sm font-bold"
+                >
+                  Cancel
+                </button>
+                {geminiKeySource === 'personal' && (
+                  <button
+                    onClick={handleClearGeminiKey}
+                    className="border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-300 px-4 py-2 rounded-xl text-sm font-bold"
+                  >
+                    Remove Key
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowGeminiKeyEditor(true)}
+                className="bg-stone-100 dark:bg-stone-900 text-stone-700 dark:text-stone-200 px-4 py-2 rounded-xl text-sm font-bold"
+              >
+                {geminiKeySource === 'personal' ? 'Update Key' : 'Add Personal Key'}
+              </button>
+              {geminiKeySource === 'personal' && (
+                <button
+                  onClick={handleClearGeminiKey}
+                  className="border border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-300 px-4 py-2 rounded-xl text-sm font-bold"
+                >
+                  Remove Key
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col items-center justify-center">
         <div className="w-full max-w-sm bg-white dark:bg-[#1e1e1c] border border-stone-100 dark:border-stone-800 p-8 rounded-[40px] shadow-sm flex flex-col items-center gap-8 relative overflow-hidden">

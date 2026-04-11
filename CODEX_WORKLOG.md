@@ -203,6 +203,31 @@
   - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
   - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
   - Android debug build passed with `.\gradlew.bat :app:assembleDebug`.
+
+## 2026-04-11
+
+- GitHub-safe APK and Gemini key preparation:
+  - Added `services/geminiKeyService.ts` to support two safe Gemini key paths:
+    - developer key from `.env.local`
+    - personal key stored locally on the current device
+  - Updated `services/geminiService.ts` to use the active Gemini key through the new key service instead of relying on an injected `process.env` value.
+  - Updated `views/Scan.tsx` so users can add, update, or remove a personal Gemini key from the Online AI screen.
+  - Added `.env.example` as the safe developer template for local builds.
+  - Updated `.gitignore` to explicitly ignore `.env` files while keeping `.env.example` tracked.
+  - Simplified `vite.config.ts` so the app now reads `VITE_GEMINI_API_KEY` through normal Vite env handling.
+  - Added helper npm scripts in `package.json` for:
+    - `build:web`
+    - `sync:android`
+    - `apk:debug`
+    - `apk:release`
+  - Added `APK_RELEASE_GUIDE.md` with GitHub-safe API key guidance and APK build steps.
+  - Updated `README.md`, `FLORALIFE_PROJECT_DOCUMENTATION.md`, and `FLORALIFE_PRINT_DOCUMENTATION.md` with API key and APK release information for both developers and end users.
+- Verification:
+  - TypeScript check passed with `node .\node_modules\typescript\bin\tsc --noEmit`.
+  - Vite production build passed with `node .\node_modules\vite\bin\vite.js build`.
+  - Capacitor Android sync passed with `node .\node_modules\@capacitor\cli\bin\capacitor sync android`.
+  - Android release build passed with `.\gradlew.bat :app:assembleRelease`.
+  - Verified unsigned release APK output at `android/app/build/outputs/apk/release/app-release-unsigned.apk`.
 - Offline AI sample-matching follow-up:
   - Reviewed the second screenshot session in `C:\Users\aksha\Downloads\avdss\session2`.
   - Confirmed the exact-byte sample matcher was too strict because Android gallery selection can re-encode the original file before it reaches the app.

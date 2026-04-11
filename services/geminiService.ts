@@ -1,19 +1,25 @@
-
 import { GoogleGenAI, Type, GenerateContentParameters } from "@google/genai";
 import { ScanResult, ShopProduct } from "../types";
+import { getActiveGeminiApiKey, MISSING_GEMINI_API_KEY_MESSAGE } from "./geminiKeyService";
 
-/**
- * Model fallback chain following the latest Gemini model guidelines.
- */
 const MODEL_FALLBACK_CHAIN = [
   'gemini-3-pro-preview',
   'gemini-3-flash-preview',
   'gemini-flash-lite-latest'
 ];
 
+function createGeminiClient() {
+  const apiKey = getActiveGeminiApiKey();
+
+  if (!apiKey) {
+    throw new Error(MISSING_GEMINI_API_KEY_MESSAGE);
+  }
+
+  return new GoogleGenAI({ apiKey });
+}
+
 async function callGeminiWithFallback(params: Omit<GenerateContentParameters, 'model'>): Promise<any> {
-  // Always use process.env.API_KEY directly for initialization as per guidelines.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = createGeminiClient();
   let lastError = null;
 
   for (const modelName of MODEL_FALLBACK_CHAIN) {
@@ -22,15 +28,13 @@ async function callGeminiWithFallback(params: Omit<GenerateContentParameters, 'm
         ...params,
         model: modelName,
       });
-      
-      // Access the .text property directly. Do not use .text().
+
       if (!response || !response.text) {
         throw new Error("Empty response from model");
       }
 
       return response.text;
     } catch (error: any) {
-      console.warn(`Model ${modelName} failed, trying next in chain...`, error);
       lastError = error;
       continue;
     }
@@ -74,7 +78,6 @@ export async function getShopRecommendations(plantNames: string[]): Promise<Shop
       flipkartUrl: `https://www.flipkart.com/search?q=${encodeURIComponent(p.name)}`
     }));
   } catch (error) {
-    console.error("AI Shop Rec Error:", error);
     return [];
   }
 }
@@ -134,7 +137,6 @@ export async function analyzePlantImage(base64Image: string): Promise<ScanResult
       timestamp: Date.now()
     };
   } catch (error) {
-    console.error("Gemini Analysis Error:", error);
     throw error;
   }
 }
@@ -173,7 +175,6 @@ export async function generateSpeciesInfo(plantName: string): Promise<any> {
     });
     return JSON.parse(jsonResponseText);
   } catch (error) {
-    console.error("Species Generation Error:", error);
     throw error;
   }
 }

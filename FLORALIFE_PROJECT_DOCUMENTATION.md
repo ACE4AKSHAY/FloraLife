@@ -241,6 +241,15 @@ The reminder system was upgraded from a web-only approach to a native Android ap
 - Uses Gemini through the Google GenAI package
 - Returns structured scan output and recommendations
 
+### Gemini API key handling
+
+- Developers can keep a private Gemini key in `.env.local` using `VITE_GEMINI_API_KEY`
+- `.env.local` is ignored by Git and should never be committed
+- Users and project members can also save their own personal Gemini key directly inside the app from the `Scan > Online AI` screen
+- A personal key is stored only on the current device through local storage
+- If no Gemini key is present, Online AI is unavailable but Offline AI and the rest of FloraLife still continue to work
+- A Gemini key bundled into a client APK can still be extracted, so public APK sharing should avoid embedding a developer key
+
 ### Offline scanning
 
 - Runs only on Android through the custom TFLite plugin
@@ -318,6 +327,25 @@ This means:
 3. Open `android/` in Android Studio
 4. Select an emulator or phone
 5. Run the app
+
+### GitHub-safe developer setup
+
+1. Copy `.env.example` to `.env.local`
+2. Add `VITE_GEMINI_API_KEY=your_key_here`
+3. Keep `.env.local` private on the local machine
+4. Do not commit any real key to GitHub
+
+### APK release preparation
+
+- Debug APK command: `npm run apk:debug`
+- Release APK command: `npm run apk:release`
+- Debug APK output: `android/app/build/outputs/apk/debug/app-debug.apk`
+- Unsigned release APK output: `android/app/build/outputs/apk/release/app-release-unsigned.apk`
+- A detailed release checklist is provided in `APK_RELEASE_GUIDE.md`
+- For future public release, the safer path is:
+  - build without a bundled developer key
+  - let users add their own personal Gemini key inside the app
+  - or move Gemini access to a backend proxy service
 
 ## 17. Testing and Current Working State
 
@@ -416,6 +444,8 @@ FloraLife successfully combines plant tracking, care logging, AI-assisted scan s
 
 ### Project resource references
 
+- APK release and API key guide: `APK_RELEASE_GUIDE.md`
+- Developer env template: `.env.example`
 - Offline sample source manifest: `presentation/offline-ai-samples/sources.csv`
 - Offline sample usage guide: `presentation/offline-ai-samples/README.md`
 - Offline sample suggestion guide: `OFFLINE_MODEL_SAMPLE_IMAGES.md`

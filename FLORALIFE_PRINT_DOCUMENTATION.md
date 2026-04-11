@@ -58,6 +58,14 @@ The project follows a local-first design. Plant data, reminder data, care logs, 
 - Offline AI: TensorFlow Lite through a custom Android Capacitor plugin
 - Persistence: local storage
 
+### API Key Handling
+
+- Developers can keep a private Gemini key in `.env.local`
+- `.env.local` should never be committed to GitHub
+- Users can also save a personal Gemini key directly inside FloraLife from `Scan > Online AI`
+- Personal keys stay only on the current device through local storage
+- For public APK sharing, it is safer not to bundle a developer key into the app
+
 ### System Workflow
 
 #### Plant management workflow
@@ -128,6 +136,12 @@ The current FloraLife build includes:
 - Larger offline dataset and model improvement
 - More advanced guide content and analytics
 - Open-source publishing and wider device testing
+
+### APK Release Preparation
+
+- Debug APK command: `npm run apk:debug`
+- Release APK command: `npm run apk:release`
+- Full release and API key notes are included in `APK_RELEASE_GUIDE.md`
 
 ### Conclusion
 
